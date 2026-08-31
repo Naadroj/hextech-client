@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { existsSync, readFileSync } from 'node:fs'
 import WebSocket from 'ws'
+import type { LcuEvent, LcuEventType } from '../../shared/lcu-types'
 
 /**
  * WebSocket LCU (sous-protocole type WAMP).
@@ -11,13 +12,7 @@ import WebSocket from 'ws'
  * Émet : `open`, `event` (LcuEvent), `event:<uri>` (LcuEvent), `close`, `error`.
  */
 
-export type LcuEventType = 'Create' | 'Update' | 'Delete'
-
-export interface LcuEvent<T = unknown> {
-  eventType: LcuEventType
-  uri: string
-  data: T
-}
+export type { LcuEvent, LcuEventType } from '../../shared/lcu-types'
 
 /** Extrait un `LcuEvent` d'une trame WAMP brute, ou `null` si non pertinent. */
 export function parseWampEvent(raw: string): LcuEvent | null {

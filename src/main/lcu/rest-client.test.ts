@@ -109,6 +109,16 @@ describe('createRestClient', () => {
     expect(res.data).toBe('ChampSelect')
   })
 
+  it('requestRaw retourne le corps binaire et le content-type', async () => {
+    const client = createRestClient(creds, { origin })
+    const res = await client.requestRaw('GET', '/text')
+    expect(res.ok).toBe(true)
+    expect(res.contentType).toContain('text/plain')
+    expect(Buffer.isBuffer(res.body)).toBe(true)
+    expect(res.body.toString('utf8')).toBe('ChampSelect')
+    expect(last.auth).toBe(buildBasicAuthHeader('my-secret-token'))
+  })
+
   it('rejette avec une erreur de timeout', async () => {
     const slow = https.createServer({ key: KEY, cert: CERT }, () => {
       /* ne répond jamais */

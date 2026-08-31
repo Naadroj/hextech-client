@@ -6,6 +6,7 @@ import {
   acceptReadyCheck,
   declineReadyCheck,
   getGameflowPhase,
+  getCurrentRankedStats,
   LcuError,
   type HttpLike,
 } from './endpoints'
@@ -80,6 +81,41 @@ describe('acceptReadyCheck / declineReadyCheck', () => {
 describe('getGameflowPhase', () => {
   it('retourne la phase courante', async () => {
     expect(await getGameflowPhase(http(vi.fn(async () => ok('ChampSelect'))))).toBe('ChampSelect')
+  })
+})
+
+describe('getCurrentRankedStats', () => {
+  it('normalise solo/duo et flex depuis queueMap', async () => {
+    const get = vi.fn(async () =>
+      ok({
+        queueMap: {
+          RANKED_SOLO_5x5: { tier: 'PLATINUM', division: 'IV', leaguePoints: 12, wins: 30, losses: 25 },
+          RANKED_FLEX_SR: { tier: '', division: 'NA', leaguePoints: 0, wins: 0, losses: 0 },
+        },
+      }),
+    )
+    const stats = await getCurrentRankedStats(http(get))
+    expect(stats.soloDuo).toEqual({
+      queueType: '',
+      tier: 'PLATINUM',
+      division: 'IV',
+      leaguePoints: 12,
+      wins: 30,
+      losses: 25,
+    })
+    // tier vide → non classé
+    expect(stats.flex).toBeNull()
+  })
+
+  it('retourne { null, null } si queueMap est absent', async () => {
+    const stats = await getCurrentRankedStats(http(vi.fn(async () => ok({}))))
+    expect(stats).toEqual({ soloDuo: null, flex: null })
+  })
+
+  it('lève LcuError sur un statut non-ok', async () => {
+    await expect(getCurrentRankedStats(http(vi.fn(async () => fail(500))))).rejects.toBeInstanceOf(
+      LcuError,
+    )
   })
 })
 

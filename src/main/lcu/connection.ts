@@ -7,6 +7,7 @@ import {
 import type { LcuRestClient } from './rest-client'
 import { getCurrentSummoner, type CurrentSummoner } from './endpoints'
 import type { LcuEvent } from './ws-client'
+import type { ConnectionInfo, ConnectionStatus } from '../../shared/lcu-types'
 
 /**
  * Orchestrateur : relie le `ProcessWatcher`, la récupération des identifiants,
@@ -19,7 +20,7 @@ import type { LcuEvent } from './ws-client'
  * Le token n'est jamais émis : `connected` ne porte que `PublicCredentials`.
  */
 
-export type ConnectionState = 'idle' | 'connecting' | 'connected'
+export type ConnectionState = ConnectionStatus
 
 /** Sous-ensemble d'un émetteur type `ProcessWatcher`. */
 export interface WatcherLike {
@@ -59,6 +60,7 @@ export class LcuConnection extends EventEmitter {
   private rest?: LcuRestClient
   private ws?: WebSocketLike
   private credentials?: LcuCredentials
+  private lastSummoner: CurrentSummoner | null = null
   private attempt = 0
   private retryTimer?: ReturnType<typeof setTimeout>
 
@@ -68,6 +70,11 @@ export class LcuConnection extends EventEmitter {
 
   get state(): ConnectionState {
     return this._state
+  }
+
+  /** Instantané sûr à exposer au renderer (jamais de token). */
+  get info(): ConnectionInfo {
+    return { status: this._state, summoner: this.lastSummoner }
   }
 
   /** Client REST courant (undefined tant que non connecté). */
@@ -137,6 +144,7 @@ export class LcuConnection extends EventEmitter {
       const summoner = await getCurrentSummoner(rest)
       this.credentials = creds
       this.rest = rest
+      this.lastSummoner = summoner
       this._state = 'connected'
       this.attempt = 0
       this.clearRetry()
@@ -165,6 +173,7 @@ export class LcuConnection extends EventEmitter {
     this.ws = undefined
     this.rest = undefined
     this.credentials = undefined
+    this.lastSummoner = null
     if (this._state !== 'idle') {
       this._state = 'idle'
       this.emit('disconnected')

@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { TitleBar } from './components/layout/TitleBar'
 import { NavRail, type NavItem } from './components/layout/NavRail'
+import { StatusBadge } from './components/layout/StatusBadge'
 import { KitchenSink } from './views/KitchenSink'
+import { Home } from './views/Home'
+import { useLcuConnection } from './lib/useLcuConnection'
 
 const NAV: NavItem[] = [
   { id: 'home', label: 'Accueil' },
@@ -13,18 +16,24 @@ const NAV: NavItem[] = [
 ]
 
 export default function App() {
-  const [active, setActive] = useState('kit')
+  const [active, setActive] = useState('home')
+  const connection = useLcuConnection()
   const activeLabel = NAV.find((n) => n.id === active)?.label ?? ''
 
   return (
     <div className="flex h-full flex-col bg-hextech-black text-gold-100">
       <TitleBar />
       <div className="flex min-h-0 flex-1">
-        <NavRail items={NAV} activeId={active} onSelect={setActive} />
+        <NavRail
+          items={NAV}
+          activeId={active}
+          onSelect={setActive}
+          footer={<StatusBadge status={connection.status} />}
+        />
         <main className="flex-1 overflow-y-auto p-8">
-          {active === 'kit' ? (
-            <KitchenSink />
-          ) : (
+          {active === 'home' && <Home connection={connection} />}
+          {active === 'kit' && <KitchenSink />}
+          {active !== 'home' && active !== 'kit' && (
             <div className="hx-panel">
               <h2>{activeLabel}</h2>
               <div className="hx-divider" />

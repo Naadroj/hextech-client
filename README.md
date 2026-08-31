@@ -20,14 +20,16 @@ npm run test       # tests unitaires
 npm run typecheck  # vérification des types (main + renderer)
 npm run lint       # ESLint
 npm run build      # build de production dans out/
+npm run assets     # (re)génère build/icon.png et build/tray.png
 ```
 
 ## Structure
 
 | Chemin | Rôle |
 | --- | --- |
-| `src/main/` | Process principal Electron (fenêtre, IPC) |
+| `src/main/` | Process principal Electron (fenêtre, IPC, systray, config) |
 | `src/main/lcu/` | Cœur LCU : lockfile, credentials, REST, WebSocket, orchestrateur |
+| `src/main/ipc/` | Surface IPC du pont LCU (liste blanche, relais d'événements) |
 | `src/preload/` | Pont `contextBridge` sécurisé vers le renderer |
 | `src/renderer/` | UI React (composants Hextech, vues) |
 | `src/shared/` | Types et utilitaires partagés main ↔ renderer |
@@ -38,9 +40,11 @@ npm run build      # build de production dans out/
 
 - [x] **Phase 0** — Fondations & outillage
 - [x] **Phase 1** — Design System Hextech (Button, Panel, Modal, Divider, NavRail, TitleBar, Kitchen Sink)
-- [x] **Phase 2** — Cœur LCU (lockfile, credentials, REST `node:https`, WebSocket WAMP, orchestrateur) — non encore relié au process principal
-- [ ] **Phase 3** — Pont IPC & bridge renderer
-- [ ] Phases 4 → 9
+- [x] **Phase 2** — Cœur LCU (lockfile, credentials, REST `node:https`, WebSocket WAMP, orchestrateur)
+- [x] **Phase 3** — Pont IPC (`window.app.lcu`) : liste blanche d'endpoints (`read` = GET only), relais d'événements filtré, mutations sur canaux dédiés
+- [x] **Phase 4** — Connexion & Statut joueur : vue Accueil (icône, niveau/XP, rang solo/flex), `StatusBadge`, systray, option « réduire le client officiel »
+- [ ] **Phase 5** — Lobby & Matchmaking
+- [ ] Phases 6 → 9
 
 ## Note OneDrive
 

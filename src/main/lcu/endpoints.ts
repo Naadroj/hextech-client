@@ -1,4 +1,20 @@
 import type { LcuResponse } from './rest-client'
+import type {
+  CurrentSummoner,
+  GameflowPhase,
+  RankedEntry,
+  RankedStats,
+  ReadyCheck,
+} from '../../shared/lcu-types'
+
+export type {
+  CurrentSummoner,
+  GameflowPhase,
+  RankedEntry,
+  RankedStats,
+  ReadyCheck,
+  ReadyCheckStateName,
+} from '../../shared/lcu-types'
 
 /**
  * Wrappers typés autour des endpoints LCU utilisés par l'application.
@@ -26,21 +42,6 @@ export class LcuError extends Error {
 
 // ─── /lol-summoner ───────────────────────────────────────────────────────────
 
-export interface CurrentSummoner {
-  summonerId: number
-  accountId: number
-  puuid: string
-  displayName: string
-  gameName: string
-  tagLine: string
-  internalName: string
-  profileIconId: number
-  summonerLevel: number
-  percentCompleteForNextLevel: number
-  xpSinceLastLevel: number
-  xpUntilNextLevel: number
-}
-
 export async function getCurrentSummoner(http: HttpLike): Promise<CurrentSummoner> {
   const res = await http.get<CurrentSummoner>('/lol-summoner/v1/current-summoner')
   if (!res.ok) throw new LcuError('/lol-summoner/v1/current-summoner', res.status, res.data)
@@ -48,19 +49,6 @@ export async function getCurrentSummoner(http: HttpLike): Promise<CurrentSummone
 }
 
 // ─── /lol-matchmaking : ready-check ──────────────────────────────────────────
-
-export type ReadyCheckStateName =
-  | 'Invalid'
-  | 'InProgress'
-  | 'EveryoneReady'
-  | 'StrangerNotReady'
-  | 'PartyNotReady'
-
-export interface ReadyCheck {
-  state: ReadyCheckStateName
-  playerResponse: 'None' | 'Accepted' | 'Declined'
-  timer: number
-}
 
 /** Retourne `null` quand aucun ready-check n'est en cours (HTTP 404). */
 export async function getReadyCheck(http: HttpLike): Promise<ReadyCheck | null> {
@@ -87,24 +75,37 @@ export async function declineReadyCheck(http: HttpLike): Promise<void> {
 
 // ─── /lol-gameflow ──────────────────────────────────────────────────────────
 
-export type GameflowPhase =
-  | 'None'
-  | 'Lobby'
-  | 'Matchmaking'
-  | 'CheckedIntoTournament'
-  | 'ReadyCheck'
-  | 'ChampSelect'
-  | 'GameStart'
-  | 'FailedToLaunch'
-  | 'InProgress'
-  | 'Reconnect'
-  | 'WaitingForStats'
-  | 'PreEndOfGame'
-  | 'EndOfGame'
-  | 'TerminatedInError'
-
 export async function getGameflowPhase(http: HttpLike): Promise<GameflowPhase> {
   const res = await http.get<GameflowPhase>('/lol-gameflow/v1/gameflow-phase')
   if (!res.ok) throw new LcuError('/lol-gameflow/v1/gameflow-phase', res.status, res.data)
   return res.data
+}
+
+// ─── /lol-ranked ────────────────────────────────────────────────────────────
+
+interface RawRankedStats {
+  queueMap?: Record<string, Partial<RankedEntry> | undefined>
+}
+
+function normalizeRankedEntry(raw: Partial<RankedEntry> | undefined): RankedEntry | null {
+  if (!raw || !raw.tier) return null
+  return {
+    queueType: raw.queueType ?? '',
+    tier: raw.tier,
+    division: raw.division ?? '',
+    leaguePoints: raw.leaguePoints ?? 0,
+    wins: raw.wins ?? 0,
+    losses: raw.losses ?? 0,
+  }
+}
+
+/** Classement solo/duo + flex du joueur connecté. */
+export async function getCurrentRankedStats(http: HttpLike): Promise<RankedStats> {
+  const res = await http.get<RawRankedStats>('/lol-ranked/v1/current-ranked-stats')
+  if (!res.ok) throw new LcuError('/lol-ranked/v1/current-ranked-stats', res.status, res.data)
+  const queues = res.data.queueMap ?? {}
+  return {
+    soloDuo: normalizeRankedEntry(queues['RANKED_SOLO_5x5']),
+    flex: normalizeRankedEntry(queues['RANKED_FLEX_SR']),
+  }
 }

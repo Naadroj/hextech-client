@@ -1,11 +1,25 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, Tray } from 'electron'
 import { IpcChannels } from '../shared/ipc'
+import { logger } from './logger'
+import { ConfigStore } from './config-store'
+import { createTray } from './tray'
+import { createLcuConnection } from './lcu'
+import { minimizeLeagueClientWindow } from './lcu/system'
+import { registerLcuIpc } from './ipc/lcu-ipc'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
+const RESOURCES = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources')
+const BUILD_DIR = app.isPackaged ? process.resourcesPath : join(__dirname, '../../build')
+
+let win: BrowserWindow | null = null
+let tray: Tray | null = null
+let quitting = false
+
+const config = new ConfigStore(join(app.getPath('userData'), 'config.json'))
 
 function createWindow(): BrowserWindow {
-  const win = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1280,
     height: 800,
     minWidth: 1024,
@@ -22,53 +36,113 @@ function createWindow(): BrowserWindow {
     },
   })
 
-  win.on('ready-to-show', () => win.show())
+  window.on('ready-to-show', () => {
+    if (!config.get('startMinimizedToTray')) window.show()
+  })
 
-  win.webContents.setWindowOpenHandler(({ url }) => {
+  window.on('close', (event) => {
+    if (!quitting && config.get('closeToTray')) {
+      event.preventDefault()
+      window.hide()
+    }
+  })
+
+  window.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url)
     return { action: 'deny' }
   })
 
   if (isDev) {
-    void win.loadURL(process.env['ELECTRON_RENDERER_URL'] as string)
+    void window.loadURL(process.env['ELECTRON_RENDERER_URL'] as string)
   } else {
-    void win.loadFile(join(__dirname, '../renderer/index.html'))
+    void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  return win
+  return window
 }
 
-function registerWindowControls(getWin: () => BrowserWindow | null): void {
+function registerWindowControls(): void {
   ipcMain.handle(IpcChannels.windowMinimize, () => {
-    getWin()?.minimize()
+    win?.minimize()
   })
   ipcMain.handle(IpcChannels.windowToggleMaximize, () => {
-    const w = getWin()
-    if (!w) return
-    if (w.isMaximized()) w.unmaximize()
-    else w.maximize()
+    if (!win) return
+    if (win.isMaximized()) win.unmaximize()
+    else win.maximize()
   })
   ipcMain.handle(IpcChannels.windowClose, () => {
-    getWin()?.close()
+    win?.close()
   })
-  ipcMain.handle(IpcChannels.windowIsMaximized, () => getWin()?.isMaximized() ?? false)
+  ipcMain.handle(IpcChannels.windowIsMaximized, () => win?.isMaximized() ?? false)
 }
 
-app.whenReady().then(() => {
-  let win: BrowserWindow | null = createWindow()
-  registerWindowControls(() => win)
-
-  win.on('closed', () => {
-    win = null
-  })
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      win = createWindow()
+const singleInstance = app.requestSingleInstanceLock()
+if (!singleInstance) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (win) {
+      if (win.isMinimized()) win.restore()
+      win.show()
+      win.focus()
     }
   })
+
+  app.whenReady().then(() => {
+    win = createWindow()
+    win.on('closed', () => {
+      win = null
+    })
+
+    registerWindowControls()
+
+    const lcu = createLcuConnection({ caPath: join(RESOURCES, 'riotgames.pem') })
+    registerLcuIpc({
+      ipcMain,
+      connection: lcu,
+      getSender: () => win?.webContents ?? null,
+    })
+
+    lcu.on('connected', () => {
+      logger.info('LCU connectée')
+      if (config.get('minimizeOfficialClientOnConnect')) void minimizeLeagueClientWindow()
+    })
+    lcu.on('disconnected', () => logger.info('LCU déconnectée'))
+    lcu.on('error', (err) => logger.warn('LCU:', String(err)))
+    lcu.start()
+
+    try {
+      tray = createTray({
+        iconPath: join(BUILD_DIR, 'tray.png'),
+        getWindow: () => win,
+        onQuit: () => {
+          quitting = true
+          tray?.destroy()
+          tray = null
+          app.quit()
+        },
+      })
+    } catch (err) {
+      logger.warn('Tray indisponible', String(err))
+    }
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) {
+        win = createWindow()
+        win.on('closed', () => {
+          win = null
+        })
+      }
+    })
+  })
+}
+
+app.on('before-quit', () => {
+  quitting = true
 })
 
 app.on('window-all-closed', () => {
+  // Avec closeToTray, la fenêtre est cachée (pas fermée) ; ce handler ne se
+  // déclenche donc qu'après un vrai quit.
   if (process.platform !== 'darwin') app.quit()
 })

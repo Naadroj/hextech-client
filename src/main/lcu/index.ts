@@ -13,7 +13,11 @@ export * from './rest-client'
 export * from './ws-client'
 export * from './endpoints'
 export * from './connection'
-export { isLeagueClientRunning, getLeagueClientCommandLine } from './system'
+export {
+  isLeagueClientRunning,
+  getLeagueClientCommandLine,
+  minimizeLeagueClientWindow,
+} from './system'
 
 export interface CreateLcuConnectionOptions {
   /** Chemin vers `riotgames.pem` embarqué (validation TLS stricte si présent). */

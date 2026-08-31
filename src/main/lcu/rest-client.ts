@@ -18,12 +18,21 @@ export interface LcuResponse<T = unknown> {
   data: T
 }
 
+export interface LcuRawResponse {
+  status: number
+  ok: boolean
+  contentType: string
+  body: Buffer
+}
+
 export interface LcuRestClient {
   readonly origin: string
   request<T = unknown>(method: string, path: string, body?: unknown): Promise<LcuResponse<T>>
   get<T = unknown>(path: string): Promise<LcuResponse<T>>
   post<T = unknown>(path: string, body?: unknown): Promise<LcuResponse<T>>
   delete<T = unknown>(path: string): Promise<LcuResponse<T>>
+  /** Récupère une ressource binaire (ex. icône d'invocateur servie localement). */
+  requestRaw(method: string, path: string): Promise<LcuRawResponse>
 }
 
 export interface RestClientOptions {
@@ -102,11 +111,40 @@ export function createRestClient(
     })
   }
 
+  function requestRaw(method: string, path: string): Promise<LcuRawResponse> {
+    const url = new URL(path, origin)
+    return new Promise<LcuRawResponse>((resolve, reject) => {
+      const req = https.request(
+        url,
+        { method, agent, headers: { Authorization: authHeader } },
+        (res) => {
+          const chunks: Buffer[] = []
+          res.on('data', (c: Buffer) => chunks.push(c))
+          res.on('end', () => {
+            const status = res.statusCode ?? 0
+            resolve({
+              status,
+              ok: status >= 200 && status < 300,
+              contentType: String(res.headers['content-type'] ?? ''),
+              body: Buffer.concat(chunks),
+            })
+          })
+        },
+      )
+      req.setTimeout(timeout, () => {
+        req.destroy(new Error(`LCU: timeout de la requête ${method} ${path} après ${timeout}ms`))
+      })
+      req.on('error', reject)
+      req.end()
+    })
+  }
+
   return {
     origin,
     request,
     get: (path) => request('GET', path),
     post: (path, body) => request('POST', path, body),
     delete: (path) => request('DELETE', path),
+    requestRaw,
   }
 }

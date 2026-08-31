@@ -48,3 +48,27 @@ export async function getLeagueClientCommandLine(): Promise<string | null> {
     return null
   }
 }
+
+/**
+ * Réduit la fenêtre du client officiel via l'API Win32 `ShowWindowAsync`
+ * (SW_MINIMIZE = 6). Aucune injection : on ne fait qu'envoyer un message de
+ * fenêtre standard, comme le ferait l'utilisateur en cliquant sur « Réduire ».
+ */
+export async function minimizeLeagueClientWindow(): Promise<void> {
+  const ps = [
+    '$p = Get-Process LeagueClientUx -ErrorAction SilentlyContinue',
+    '| Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1;',
+    'if ($p) {',
+    "Add-Type -Name W -Namespace Native -MemberDefinition '[DllImport(\\\"user32.dll\\\")] public static extern bool ShowWindowAsync(System.IntPtr h, int c);';",
+    '[Native.W]::ShowWindowAsync($p.MainWindowHandle, 6) | Out-Null;',
+    '}',
+  ].join(' ')
+  try {
+    await execAsync(`powershell -NoProfile -NonInteractive -Command "${ps}"`, {
+      windowsHide: true,
+      timeout: 5000,
+    })
+  } catch (err) {
+    logger.warn('minimizeLeagueClientWindow: échec', String(err))
+  }
+}
