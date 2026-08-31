@@ -1,10 +1,12 @@
-// Sonde LCU autonome : lit le lockfile et teste la création de lobby
-// (normal + personnalisé + practice tool) en affichant les réponses brutes.
+// Sonde LCU autonome.
 //
 //   node scripts/lcu-probe.mjs
 //
-// À lancer avec le client officiel ouvert sur l'écran d'accueil, SANS lobby.
-// N'écrit rien de façon permanente (chaque lobby créé est immédiatement supprimé).
+// Deux modes automatiques :
+//  A) si un lobby existe déjà  -> dump complet (référence : ce que le client
+//     produit). Crée un "Outil d'entraînement" À LA MAIN dans le client, laisse-le
+//     ouvert, puis lance la sonde : elle affiche le gameConfig exact à répliquer.
+//  B) si aucun lobby           -> teste la création (files dispo + practice tool).
 
 import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -21,11 +23,11 @@ function readLockfile() {
   for (const d of DIRS) {
     const p = join(d, 'lockfile')
     if (existsSync(p)) {
-      const [, , port, password, protocol] = readFileSync(p, 'utf8').trim().split(':')
-      return { port: Number(port), password, protocol }
+      const [, , port, password] = readFileSync(p, 'utf8').trim().split(':')
+      return { port: Number(port), password }
     }
   }
-  throw new Error('lockfile introuvable — adapte le tableau DIRS dans ce script')
+  throw new Error('lockfile introuvable — adapte DIRS dans ce script')
 }
 
 const lf = readLockfile()
@@ -69,51 +71,63 @@ function req(method, path, body) {
   })
 }
 
-const PRACTICE = {
-  isCustom: true,
-  customGameLobby: {
-    lobbyName: 'PROBE',
-    lobbyPassword: '',
-    configuration: {
-      gameMode: 'PRACTICETOOL',
-      gameMutator: '',
-      gameServerRegion: '',
-      mapId: 11,
-      mutators: { id: 1 },
-      spectatorPolicy: 'AllAllowed',
-      teamSize: 5,
-    },
-  },
-}
-
-function show(label, res) {
+const show = (label, res) => {
   console.log(`\n=== ${label} → HTTP ${res.status}`)
   console.log(JSON.stringify(res.data, null, 2))
 }
 
 const run = async () => {
   console.log(`lockfile OK — port ${lf.port}`)
-  show('GET /lol-summoner/v1/current-summoner', await req('GET', '/lol-summoner/v1/current-summoner'))
   show('GET /lol-gameflow/v1/gameflow-phase', await req('GET', '/lol-gameflow/v1/gameflow-phase'))
-  show('DELETE /lol-lobby/v2/lobby (nettoyage)', await req('DELETE', '/lol-lobby/v2/lobby'))
 
-  show(
-    'POST /lol-lobby/v2/lobby { queueId: 430 } (lobby normal)',
-    await req('POST', '/lol-lobby/v2/lobby', { queueId: 430 }),
-  )
-  show('DELETE /lol-lobby/v2/lobby', await req('DELETE', '/lol-lobby/v2/lobby'))
+  const lobby = await req('GET', '/lol-lobby/v2/lobby')
 
-  show(
-    'GET /lol-lobby/v2/lobby/custom/available-bots',
-    await req('GET', '/lol-lobby/v2/lobby/custom/available-bots'),
-  )
+  if (lobby.status === 200) {
+    console.log('\n########################################################')
+    console.log('# MODE A : un lobby existe — voici la référence exacte. #')
+    console.log('########################################################')
+    show('GET /lol-lobby/v2/lobby', lobby)
+    return
+  }
 
-  show(
-    'POST /lol-lobby/v2/lobby (PRACTICETOOL)',
-    await req('POST', '/lol-lobby/v2/lobby', PRACTICE),
-  )
-  show('GET /lol-lobby/v2/lobby (résultat)', await req('GET', '/lol-lobby/v2/lobby'))
-  show('DELETE /lol-lobby/v2/lobby (nettoyage)', await req('DELETE', '/lol-lobby/v2/lobby'))
+  console.log('\n############################################')
+  console.log('# MODE B : aucun lobby — tests de création. #')
+  console.log('############################################')
+
+  const queues = await req('GET', '/lol-game-queues/v1/queues')
+  if (Array.isArray(queues.data)) {
+    console.log('\n=== Files PvP/VersusAi disponibles (id | availability | name)')
+    for (const q of queues.data) {
+      if (q && (q.category === 'PvP' || q.category === 'VersusAi')) {
+        console.log(`  ${q.id}\t${q.queueAvailability}\t${q.name}`)
+      }
+    }
+  }
+
+  for (const queueId of [450, 400, 430, 490]) {
+    const res = await req('POST', '/lol-lobby/v2/lobby', { queueId })
+    show(`POST /lol-lobby/v2/lobby { queueId: ${queueId} }`, res)
+    if (res.status === 200) await req('DELETE', '/lol-lobby/v2/lobby')
+  }
+
+  const practice = {
+    isCustom: true,
+    customGameLobby: {
+      lobbyName: 'PROBE',
+      lobbyPassword: '',
+      configuration: {
+        gameMode: 'PRACTICETOOL',
+        gameMutator: '',
+        gameServerRegion: '',
+        mapId: 11,
+        mutators: { id: 1 },
+        spectatorPolicy: 'AllAllowed',
+        teamSize: 5,
+      },
+    },
+  }
+  show('POST /lol-lobby/v2/lobby (PRACTICETOOL)', await req('POST', '/lol-lobby/v2/lobby', practice))
+  await req('DELETE', '/lol-lobby/v2/lobby')
 }
 
 run().catch((e) => {
