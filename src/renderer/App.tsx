@@ -9,6 +9,7 @@ import { ReadyCheckModal } from './components/ReadyCheckModal'
 import { KitchenSink } from './views/KitchenSink'
 import { Home } from './views/Home'
 import { Lobby } from './views/Lobby'
+import { ChampSelect } from './views/ChampSelect'
 import { useLcuConnection } from './lib/useLcuConnection'
 
 const NAV: NavItem[] = [
@@ -20,7 +21,7 @@ const NAV: NavItem[] = [
   { id: 'kit', label: 'Composants' },
 ]
 
-const IMPLEMENTED = new Set(['home', 'lobby', 'kit'])
+const IMPLEMENTED = new Set(['home', 'lobby', 'champ', 'kit'])
 
 export default function App() {
   const [active, setActive] = useState('home')
@@ -41,6 +42,7 @@ export default function App() {
         <main className="flex-1 overflow-y-auto p-8">
           {active === 'home' && <Home connection={connection} />}
           {active === 'lobby' && <Lobby connection={connection} />}
+          {active === 'champ' && <ChampSelect connection={connection} />}
           {active === 'kit' && <KitchenSink />}
           {!IMPLEMENTED.has(active) && (
             <div className="hx-frame max-w-xl">

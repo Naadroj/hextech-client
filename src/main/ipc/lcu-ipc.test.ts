@@ -31,6 +31,8 @@ function makeRest(over: Record<string, unknown> = {}) {
     request: vi.fn(async () => ({ status: 200, ok: true, data: { hello: 'world' } })),
     get: vi.fn(),
     post: vi.fn(async () => ({ status: 204, ok: true, data: null })),
+    patch: vi.fn(async () => ({ status: 204, ok: true, data: null })),
+    put: vi.fn(async () => ({ status: 204, ok: true, data: null })),
     delete: vi.fn(async () => ({ status: 204, ok: true, data: null })),
     requestRaw: vi.fn(async () => ({
       status: 200,
@@ -218,6 +220,50 @@ describe('registerLcuIpc — handlers', () => {
         }),
       }),
     )
+  })
+
+  it('lcu:champ-hover / champ-lock : valident les entiers et PATCHent', async () => {
+    await expect(ctx.ipcMain.invoke(IpcChannels.lcuChampHover, 'x', 1)).rejects.toThrow(/entier/)
+    await expect(ctx.ipcMain.invoke(IpcChannels.lcuChampLock, 21, 1.5)).rejects.toThrow(/entier/)
+
+    ctx.conn.rest = makeRest()
+    await ctx.ipcMain.invoke(IpcChannels.lcuChampHover, 21, 103)
+    expect(ctx.conn.rest.patch).toHaveBeenCalledWith('/lol-champ-select/v1/session/actions/21', {
+      championId: 103,
+      completed: false,
+    })
+    await ctx.ipcMain.invoke(IpcChannels.lcuChampLock, 21, 103)
+    expect(ctx.conn.rest.patch).toHaveBeenLastCalledWith('/lol-champ-select/v1/session/actions/21', {
+      championId: 103,
+      completed: true,
+    })
+  })
+
+  it('lcu:set-spells / set-rune-page PATCH/PUT les bons endpoints', async () => {
+    ctx.conn.rest = makeRest()
+    await ctx.ipcMain.invoke(IpcChannels.lcuSetSpells, 4, 14)
+    expect(ctx.conn.rest.patch).toHaveBeenCalledWith('/lol-champ-select/v1/session/my-selection', {
+      spell1Id: 4,
+      spell2Id: 14,
+    })
+    await ctx.ipcMain.invoke(IpcChannels.lcuSetRunePage, 42)
+    expect(ctx.conn.rest.put).toHaveBeenCalledWith('/lol-perks/v1/currentpage', 42)
+  })
+
+  it('lcu:get-champion-icon : data URL ou null', async () => {
+    expect(await ctx.ipcMain.invoke(IpcChannels.lcuGetChampionIcon, 103)).toBeNull()
+    ctx.conn.rest = makeRest({
+      requestRaw: vi.fn(async () => ({
+        status: 200,
+        ok: true,
+        contentType: 'image/png',
+        body: Buffer.from([7, 7]),
+      })),
+    })
+    expect(await ctx.ipcMain.invoke(IpcChannels.lcuGetChampionIcon, 103)).toBe(
+      'data:image/png;base64,' + Buffer.from([7, 7]).toString('base64'),
+    )
+    expect(await ctx.ipcMain.invoke(IpcChannels.lcuGetChampionIcon, -1)).toBeNull()
   })
 
   it('lcu:leave-lobby / start / stop matchmaking exigent un client', async () => {

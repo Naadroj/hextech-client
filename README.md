@@ -47,8 +47,9 @@ npm run assets     # (re)génère build/icon.png et build/tray.png
 - [x] **Phase 5** — Lobby & Matchmaking : sélecteur de mode, création/départ de lobby, recherche de partie + chrono, modale **Ready Check** (Accepter / Décliner sur clic explicite), suivi `gameflow`
 - [x] **Phase 5.5** — Refonte UI Hextech : tokens issus du vrai client, `Frame`/`Button`/`PlayButton`/équerres d'angle, nav haute + dock social + cadre or, fond splash art dynamique (via LCU), polices libres + slot Beaufort/Spiegel
 - [x] **Phase 5.6** — Sélecteur de mode imbriqué : menu catégorie → file façon client officiel (`ModeSelect`), files indisponibles grisées avec motif, Practice Tool & Partie personnalisée
-- [ ] **Phase 6** — Champ Select
-- [ ] Phases 7 → 9
+- [x] **Phase 6** — Champ Select : plateau (équipes, bans, timer), grille de champions avec recherche, hover + lock-in sur clic explicite, sorts d'invocateur, changement de page de runes
+- [ ] **Phase 7** — Boutique & Inventaire
+- [ ] Phases 8 → 9
 
 ## Note OneDrive
 

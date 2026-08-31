@@ -31,7 +31,7 @@ describe('App', () => {
 
   it('affiche un placeholder pour les vues non implémentées', async () => {
     render(<App />)
-    await userEvent.click(screen.getByRole('button', { name: 'Sélection' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Boutique' }))
     expect(screen.getByText(/à implémenter dans une phase ultérieure/i)).toBeInTheDocument()
   })
 })

@@ -340,6 +340,39 @@
     @apply text-gold-50;
   }
 
+  /* ─────────────────── Sélection des champions ──────────────────────── */
+  .hx-champ-icon {
+    @apply inline-block shrink-0 overflow-hidden bg-hextech-gun;
+    border: 1px solid #785b28;
+  }
+  .hx-champ-icon img {
+    @apply h-full w-full object-cover;
+  }
+  .hx-champ-icon__fallback {
+    @apply block h-full w-full bg-gun-grad;
+  }
+  .hx-champ-grid {
+    @apply grid gap-2 overflow-y-auto pr-1;
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+    max-height: 40vh;
+  }
+  .hx-champ-grid__item {
+    @apply flex flex-col items-center gap-1 border border-transparent p-1 transition-colors;
+  }
+  .hx-champ-grid__item:hover:not(:disabled) {
+    border-color: #c8aa6e;
+  }
+  .hx-champ-grid__item[data-active='true'] {
+    border-color: #c8aa6e;
+    box-shadow: 0 0 8px rgba(200, 155, 60, 0.4);
+  }
+  .hx-champ-grid__item:disabled {
+    @apply cursor-not-allowed opacity-35;
+  }
+  .hx-champ-grid__name {
+    @apply w-full truncate text-center text-[10px] uppercase tracking-hex text-parchment;
+  }
+
   /* ─────────────────── Sélecteur de mode (menu imbriqué) ─────────────── */
   .hx-modeselect {
     @apply grid gap-4;

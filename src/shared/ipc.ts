@@ -30,6 +30,8 @@ export interface LcuBridge {
   getRankedStats: () => Promise<RankedStats>
   /** Icône d'invocateur servie localement par le client, en `data:` URL. */
   getProfileIcon: (iconId: number) => Promise<string | null>
+  /** Icône carrée d'un champion (data: URL), servie localement. */
+  getChampionIcon: (championId: number) => Promise<string | null>
   /** Splash art (data: URL) du champion le plus maîtrisé, pour le fond. */
   getSplashBackground: () => Promise<string | null>
   acceptReadyCheck: () => Promise<void>
@@ -40,6 +42,10 @@ export interface LcuBridge {
   leaveLobby: () => Promise<void>
   startMatchmaking: () => Promise<void>
   stopMatchmaking: () => Promise<void>
+  champHover: (actionId: number, championId: number) => Promise<void>
+  champLock: (actionId: number, championId: number) => Promise<void>
+  setSummonerSpells: (spell1Id: number, spell2Id: number) => Promise<void>
+  setRunePage: (pageId: number) => Promise<void>
   read: <T = unknown>(path: string) => Promise<LcuReadResult<T>>
   /** Abonnement aux changements d'état de connexion ; retourne un désabonnement. */
   onConnectionChanged: (cb: (info: ConnectionInfo) => void) => () => void
@@ -62,6 +68,7 @@ export const IpcChannels = {
   lcuGetConnection: 'lcu:get-connection',
   lcuGetRankedStats: 'lcu:get-ranked-stats',
   lcuGetProfileIcon: 'lcu:get-profile-icon',
+  lcuGetChampionIcon: 'lcu:get-champion-icon',
   lcuGetSplash: 'lcu:get-splash',
   lcuAcceptReadyCheck: 'lcu:accept-ready-check',
   lcuDeclineReadyCheck: 'lcu:decline-ready-check',
@@ -71,6 +78,10 @@ export const IpcChannels = {
   lcuLeaveLobby: 'lcu:leave-lobby',
   lcuStartMatchmaking: 'lcu:start-matchmaking',
   lcuStopMatchmaking: 'lcu:stop-matchmaking',
+  lcuChampHover: 'lcu:champ-hover',
+  lcuChampLock: 'lcu:champ-lock',
+  lcuSetSpells: 'lcu:set-spells',
+  lcuSetRunePage: 'lcu:set-rune-page',
   lcuRead: 'lcu:read',
   lcuConnectionChanged: 'lcu:connection-changed',
   lcuEvent: 'lcu:event',

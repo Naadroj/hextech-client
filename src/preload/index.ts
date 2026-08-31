@@ -20,6 +20,8 @@ const api: AppApi = {
     getRankedStats: () => ipcRenderer.invoke(IpcChannels.lcuGetRankedStats),
     getProfileIcon: (iconId: number) =>
       ipcRenderer.invoke(IpcChannels.lcuGetProfileIcon, iconId),
+    getChampionIcon: (championId: number) =>
+      ipcRenderer.invoke(IpcChannels.lcuGetChampionIcon, championId),
     getSplashBackground: () => ipcRenderer.invoke(IpcChannels.lcuGetSplash),
     acceptReadyCheck: () => ipcRenderer.invoke(IpcChannels.lcuAcceptReadyCheck),
     declineReadyCheck: () => ipcRenderer.invoke(IpcChannels.lcuDeclineReadyCheck),
@@ -29,6 +31,13 @@ const api: AppApi = {
     leaveLobby: () => ipcRenderer.invoke(IpcChannels.lcuLeaveLobby),
     startMatchmaking: () => ipcRenderer.invoke(IpcChannels.lcuStartMatchmaking),
     stopMatchmaking: () => ipcRenderer.invoke(IpcChannels.lcuStopMatchmaking),
+    champHover: (actionId: number, championId: number) =>
+      ipcRenderer.invoke(IpcChannels.lcuChampHover, actionId, championId),
+    champLock: (actionId: number, championId: number) =>
+      ipcRenderer.invoke(IpcChannels.lcuChampLock, actionId, championId),
+    setSummonerSpells: (spell1Id: number, spell2Id: number) =>
+      ipcRenderer.invoke(IpcChannels.lcuSetSpells, spell1Id, spell2Id),
+    setRunePage: (pageId: number) => ipcRenderer.invoke(IpcChannels.lcuSetRunePage, pageId),
     read: (path: string) => ipcRenderer.invoke(IpcChannels.lcuRead, path),
     onConnectionChanged: (cb: (info: ConnectionInfo) => void) =>
       subscribe<ConnectionInfo>(IpcChannels.lcuConnectionChanged, cb),

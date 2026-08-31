@@ -6,16 +6,25 @@ type WindowWithApp = { app?: AppApi }
 
 /** Installe un `window.app.lcu` factice et rend accessibles les callbacks poussés. */
 export function stubLcuBridge(overrides: Partial<LcuBridge> = {}) {
-  const emitters = {
-    connection: undefined as ((info: ConnectionInfo) => void) | undefined,
-    event: undefined as ((event: LcuEvent) => void) | undefined,
-  }
+  const connectionCbs: ((info: ConnectionInfo) => void)[] = []
+  const eventCbs: ((event: LcuEvent) => void)[] = []
   const unsubscribe = vi.fn()
+
+  // Fan-out : plusieurs abonnés possibles (comme le vrai preload).
+  const emitters = {
+    connection: (info: ConnectionInfo) => connectionCbs.forEach((cb) => cb(info)),
+    event: (event: LcuEvent) => eventCbs.forEach((cb) => cb(event)),
+  }
+  const remove = <T>(arr: T[], item: T) => {
+    const i = arr.indexOf(item)
+    if (i >= 0) arr.splice(i, 1)
+  }
 
   const bridge: LcuBridge = {
     getConnection: vi.fn(async () => ({ status: 'idle', summoner: null }) as ConnectionInfo),
     getRankedStats: vi.fn(async () => ({ soloDuo: null, flex: null })),
     getProfileIcon: vi.fn(async () => null),
+    getChampionIcon: vi.fn(async () => null),
     getSplashBackground: vi.fn(async () => null),
     acceptReadyCheck: vi.fn(async () => {}),
     declineReadyCheck: vi.fn(async () => {}),
@@ -25,14 +34,24 @@ export function stubLcuBridge(overrides: Partial<LcuBridge> = {}) {
     leaveLobby: vi.fn(async () => {}),
     startMatchmaking: vi.fn(async () => {}),
     stopMatchmaking: vi.fn(async () => {}),
+    champHover: vi.fn(async () => {}),
+    champLock: vi.fn(async () => {}),
+    setSummonerSpells: vi.fn(async () => {}),
+    setRunePage: vi.fn(async () => {}),
     read: vi.fn(async () => ({ status: 200, ok: true, data: null })) as unknown as LcuBridge['read'],
     onConnectionChanged: (cb) => {
-      emitters.connection = cb
-      return unsubscribe
+      connectionCbs.push(cb)
+      return () => {
+        unsubscribe()
+        remove(connectionCbs, cb)
+      }
     },
     onEvent: (cb) => {
-      emitters.event = cb
-      return unsubscribe
+      eventCbs.push(cb)
+      return () => {
+        unsubscribe()
+        remove(eventCbs, cb)
+      }
     },
     ...overrides,
   }

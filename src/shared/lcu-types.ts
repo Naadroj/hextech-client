@@ -119,6 +119,85 @@ export interface GameQueue {
   queueAvailability: string
 }
 
+// ─── /lol-champ-select ────────────────────────────────────────────────────
+
+export type ChampSelectActionType = 'ban' | 'pick' | 'ten_bans_reveal'
+
+export interface ChampSelectAction {
+  id: number
+  actorCellId: number
+  championId: number
+  completed: boolean
+  isAllyAction: boolean
+  isInProgress: boolean
+  pickTurn: number
+  type: ChampSelectActionType
+}
+
+export interface ChampSelectCell {
+  cellId: number
+  championId: number
+  championPickIntent: number
+  summonerId: number
+  puuid: string
+  assignedPosition: string
+  spell1Id: number
+  spell2Id: number
+  selectedSkinId: number
+  nameVisibilityType: string
+}
+
+export interface ChampSelectBans {
+  myTeamBans: number[]
+  theirTeamBans: number[]
+  numBans: number
+}
+
+export interface ChampSelectTimer {
+  adjustedTimeLeftInPhase: number
+  totalTimeInPhase: number
+  phase: string
+  isInfinite: boolean
+}
+
+export interface ChampSelectSession {
+  actions: ChampSelectAction[][]
+  myTeam: ChampSelectCell[]
+  theirTeam: ChampSelectCell[]
+  bans: ChampSelectBans
+  timer: ChampSelectTimer
+  localPlayerCellId: number
+  isCustomGame: boolean
+  benchEnabled: boolean
+  benchChampions: { championId: number }[]
+}
+
+export interface GridChampion {
+  id: number
+  name: string
+  disabled: boolean
+  owned: boolean
+}
+
+export interface SummonerSpell {
+  id: number
+  name: string
+  description: string
+  gameModes: string[]
+}
+
+export interface RunePage {
+  id: number
+  name: string
+  isEditable: boolean
+  isDeletable: boolean
+  isActive: boolean
+  current: boolean
+  primaryStyleId: number
+  subStyleId: number
+  selectedPerkIds: number[]
+}
+
 // ─── /lol-ranked ──────────────────────────────────────────────────────────
 
 export interface RankedEntry {

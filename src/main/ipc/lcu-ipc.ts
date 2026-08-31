@@ -9,7 +9,11 @@ import {
   declineReadyCheck,
   getCurrentRankedStats,
   getTopMasteryChampionId,
+  hoverChampion,
   leaveLobby,
+  lockChampion,
+  setCurrentRunePage,
+  setSummonerSpells,
   startMatchmaking,
   stopMatchmaking,
 } from '../lcu/endpoints'
@@ -81,7 +85,12 @@ const HANDLED_CHANNELS: string[] = [
   IpcChannels.lcuGetConnection,
   IpcChannels.lcuGetRankedStats,
   IpcChannels.lcuGetProfileIcon,
+  IpcChannels.lcuGetChampionIcon,
   IpcChannels.lcuGetSplash,
+  IpcChannels.lcuChampHover,
+  IpcChannels.lcuChampLock,
+  IpcChannels.lcuSetSpells,
+  IpcChannels.lcuSetRunePage,
   IpcChannels.lcuAcceptReadyCheck,
   IpcChannels.lcuDeclineReadyCheck,
   IpcChannels.lcuCreateLobby,
@@ -142,6 +151,26 @@ export function registerLcuIpc(deps: RegisterLcuIpcDeps): () => void {
       return `data:${mime};base64,${res.body.toString('base64')}`
     } catch (err) {
       logger.warn('lcu:get-profile-icon a échoué', String(err))
+      return null
+    }
+  })
+
+  ipcMain.handle(IpcChannels.lcuGetChampionIcon, async (_event, ...args) => {
+    const championId = args[0]
+    const rest = connection.restClient
+    if (!rest || typeof championId !== 'number' || !Number.isInteger(championId) || championId <= 0) {
+      return null
+    }
+    try {
+      const res = await rest.requestRaw(
+        'GET',
+        `/lol-game-data/assets/v1/champion-icons/${championId}.png`,
+      )
+      if (!res.ok || res.body.byteLength === 0) return null
+      const mime = res.contentType || 'image/png'
+      return `data:${mime};base64,${res.body.toString('base64')}`
+    } catch (err) {
+      logger.warn('lcu:get-champion-icon a échoué', String(err))
       return null
     }
   })
@@ -221,6 +250,39 @@ export function registerLcuIpc(deps: RegisterLcuIpcDeps): () => void {
     const rest = connection.restClient
     if (!rest) throw new Error('LCU hors ligne')
     await stopMatchmaking(rest)
+  })
+
+  const requireRest = () => {
+    const rest = connection.restClient
+    if (!rest) throw new Error('LCU hors ligne')
+    return rest
+  }
+  const int = (v: unknown): number => {
+    if (typeof v !== 'number' || !Number.isInteger(v)) throw new Error('argument entier attendu')
+    return v
+  }
+
+  ipcMain.handle(IpcChannels.lcuChampHover, async (_event, ...args) => {
+    const actionId = int(args[0])
+    const championId = int(args[1])
+    await hoverChampion(requireRest(), actionId, championId)
+  })
+
+  ipcMain.handle(IpcChannels.lcuChampLock, async (_event, ...args) => {
+    const actionId = int(args[0])
+    const championId = int(args[1])
+    await lockChampion(requireRest(), actionId, championId)
+  })
+
+  ipcMain.handle(IpcChannels.lcuSetSpells, async (_event, ...args) => {
+    const spell1Id = int(args[0])
+    const spell2Id = int(args[1])
+    await setSummonerSpells(requireRest(), spell1Id, spell2Id)
+  })
+
+  ipcMain.handle(IpcChannels.lcuSetRunePage, async (_event, ...args) => {
+    const pageId = int(args[0])
+    await setCurrentRunePage(requireRest(), pageId)
   })
 
   ipcMain.handle(IpcChannels.lcuRead, async (_event, ...args) => {

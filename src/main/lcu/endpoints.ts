@@ -1,19 +1,27 @@
 import type { LcuResponse } from './rest-client'
 import type {
+  ChampSelectSession,
   CurrentSummoner,
   GameflowPhase,
   GameQueue,
+  GridChampion,
   Lobby,
   MatchmakingSearch,
   RankedEntry,
   RankedStats,
   ReadyCheck,
+  RunePage,
+  SummonerSpell,
 } from '../../shared/lcu-types'
 
 export type {
+  ChampSelectAction,
+  ChampSelectCell,
+  ChampSelectSession,
   CurrentSummoner,
   GameflowPhase,
   GameQueue,
+  GridChampion,
   Lobby,
   LobbyMember,
   MatchmakingSearch,
@@ -22,6 +30,8 @@ export type {
   RankedStats,
   ReadyCheck,
   ReadyCheckStateName,
+  RunePage,
+  SummonerSpell,
 } from '../../shared/lcu-types'
 
 /**
@@ -35,6 +45,8 @@ export type {
 export interface HttpLike {
   get<T = unknown>(path: string): Promise<LcuResponse<T>>
   post<T = unknown>(path: string, body?: unknown): Promise<LcuResponse<T>>
+  patch<T = unknown>(path: string, body?: unknown): Promise<LcuResponse<T>>
+  put<T = unknown>(path: string, body?: unknown): Promise<LcuResponse<T>>
   delete<T = unknown>(path: string): Promise<LcuResponse<T>>
 }
 
@@ -235,6 +247,136 @@ export async function getMatchmakingSearch(http: HttpLike): Promise<MatchmakingS
   if (res.status === 404) return null
   if (!res.ok) throw new LcuError('/lol-matchmaking/v1/search', res.status, res.data)
   return res.data
+}
+
+// ─── /lol-champ-select ─────────────────────────────────────────────────────
+
+/** Session de sélection des champions, ou `null` hors phase (HTTP 404). */
+export async function getChampSelectSession(http: HttpLike): Promise<ChampSelectSession | null> {
+  const res = await http.get<ChampSelectSession>('/lol-champ-select/v1/session')
+  if (res.status === 404) return null
+  if (!res.ok) throw new LcuError('/lol-champ-select/v1/session', res.status, res.data)
+  return res.data
+}
+
+async function championIdList(http: HttpLike, path: string): Promise<number[]> {
+  const res = await http.get<number[]>(path)
+  return res.ok && Array.isArray(res.data) ? res.data : []
+}
+
+export function getPickableChampionIds(http: HttpLike): Promise<number[]> {
+  return championIdList(http, '/lol-champ-select/v1/pickable-champion-ids')
+}
+
+export function getBannableChampionIds(http: HttpLike): Promise<number[]> {
+  return championIdList(http, '/lol-champ-select/v1/bannable-champion-ids')
+}
+
+interface RawGridChampion extends Partial<GridChampion> {
+  selectionStatus?: { banned?: boolean; pickedByOtherOrBanned?: boolean }
+}
+
+/** Champions de la grille de sélection (nom, disponibilité). */
+export async function getGridChampions(http: HttpLike): Promise<GridChampion[]> {
+  const res = await http.get<RawGridChampion[]>('/lol-champ-select/v1/all-grid-champions')
+  if (!res.ok || !Array.isArray(res.data)) return []
+  return res.data
+    .filter((c): c is RawGridChampion => typeof c?.id === 'number' && c.id > 0)
+    .map((c) => ({
+      id: c.id as number,
+      name: c.name ?? `Champion ${c.id}`,
+      disabled: Boolean(c.disabled),
+      owned: Boolean(c.owned),
+    }))
+}
+
+/** Survole un champion (aperçu, non verrouillé). */
+export async function hoverChampion(
+  http: HttpLike,
+  actionId: number,
+  championId: number,
+): Promise<void> {
+  const res = await http.patch(`/lol-champ-select/v1/session/actions/${actionId}`, {
+    championId,
+    completed: false,
+  })
+  if (!res.ok) {
+    throw new LcuError(`/lol-champ-select/v1/session/actions/${actionId}`, res.status, res.data)
+  }
+}
+
+/** Verrouille le champion survolé (pick ou ban définitif). */
+export async function lockChampion(
+  http: HttpLike,
+  actionId: number,
+  championId: number,
+): Promise<void> {
+  const res = await http.patch(`/lol-champ-select/v1/session/actions/${actionId}`, {
+    championId,
+    completed: true,
+  })
+  if (!res.ok) {
+    throw new LcuError(
+      `/lol-champ-select/v1/session/actions/${actionId} (lock)`,
+      res.status,
+      res.data,
+    )
+  }
+}
+
+/** Change les deux sorts d'invocateur du joueur local. */
+export async function setSummonerSpells(
+  http: HttpLike,
+  spell1Id: number,
+  spell2Id: number,
+): Promise<void> {
+  const res = await http.patch('/lol-champ-select/v1/session/my-selection', { spell1Id, spell2Id })
+  if (!res.ok) {
+    throw new LcuError('/lol-champ-select/v1/session/my-selection', res.status, res.data)
+  }
+}
+
+// ─── /lol-game-data & /lol-perks (données pour champ select) ────────────────
+
+interface RawSpell extends Partial<SummonerSpell> {
+  gameModes?: string[]
+}
+
+export async function getSummonerSpells(http: HttpLike): Promise<SummonerSpell[]> {
+  const res = await http.get<RawSpell[]>('/lol-game-data/v1/summoner-spells.json')
+  if (!res.ok || !Array.isArray(res.data)) return []
+  return res.data
+    .filter((s): s is RawSpell => typeof s?.id === 'number' && s.id > 0)
+    .map((s) => ({
+      id: s.id as number,
+      name: s.name ?? `Sort ${s.id}`,
+      description: s.description ?? '',
+      gameModes: Array.isArray(s.gameModes) ? s.gameModes : [],
+    }))
+}
+
+export async function getRunePages(http: HttpLike): Promise<RunePage[]> {
+  const res = await http.get<Partial<RunePage>[]>('/lol-perks/v1/pages')
+  if (!res.ok || !Array.isArray(res.data)) return []
+  return res.data
+    .filter((p): p is Partial<RunePage> => typeof p?.id === 'number')
+    .map((p) => ({
+      id: p.id as number,
+      name: p.name ?? 'Page',
+      isEditable: Boolean(p.isEditable),
+      isDeletable: Boolean(p.isDeletable),
+      isActive: Boolean(p.isActive),
+      current: Boolean(p.current),
+      primaryStyleId: p.primaryStyleId ?? 0,
+      subStyleId: p.subStyleId ?? 0,
+      selectedPerkIds: Array.isArray(p.selectedPerkIds) ? p.selectedPerkIds : [],
+    }))
+}
+
+/** Active une page de runes existante (par identifiant). */
+export async function setCurrentRunePage(http: HttpLike, pageId: number): Promise<void> {
+  const res = await http.put('/lol-perks/v1/currentpage', pageId)
+  if (!res.ok) throw new LcuError('/lol-perks/v1/currentpage', res.status, res.data)
 }
 
 // ─── /lol-champion-mastery ──────────────────────────────────────────────────

@@ -17,6 +17,16 @@ import {
   getTopMasteryChampionId,
   createPracticeToolLobby,
   createCustomLobby,
+  getChampSelectSession,
+  getGridChampions,
+  getPickableChampionIds,
+  getBannableChampionIds,
+  hoverChampion,
+  lockChampion,
+  setSummonerSpells,
+  getSummonerSpells,
+  getRunePages,
+  setCurrentRunePage,
   LcuError,
   type HttpLike,
 } from './endpoints'
@@ -34,8 +44,10 @@ function http(
   get: ReturnType<typeof vi.fn> = vi.fn(),
   post: ReturnType<typeof vi.fn> = vi.fn(),
   del: ReturnType<typeof vi.fn> = vi.fn(),
+  patch: ReturnType<typeof vi.fn> = vi.fn(),
+  put: ReturnType<typeof vi.fn> = vi.fn(),
 ): HttpLike {
-  return { get, post, delete: del } as unknown as HttpLike
+  return { get, post, delete: del, patch, put } as unknown as HttpLike
 }
 
 describe('getCurrentSummoner', () => {
@@ -251,6 +263,81 @@ describe('lobby & matchmaking', () => {
     expect(await getMatchmakingSearch(http(vi.fn(async () => fail(404))))).toBeNull()
     const get = vi.fn(async () => ok({ searchState: 'Searching', timeInQueue: 12 }))
     expect((await getMatchmakingSearch(http(get)))?.searchState).toBe('Searching')
+  })
+})
+
+describe('champ-select : lecture', () => {
+  it('getChampSelectSession renvoie null sur 404', async () => {
+    expect(await getChampSelectSession(http(vi.fn(async () => fail(404))))).toBeNull()
+    const get = vi.fn(async () => ok({ localPlayerCellId: 3, actions: [] }))
+    expect((await getChampSelectSession(http(get)))?.localPlayerCellId).toBe(3)
+  })
+
+  it('getGridChampions normalise et filtre les ids invalides', async () => {
+    const get = vi.fn(async () =>
+      ok([
+        { id: 103, name: 'Ahri', disabled: false, owned: true },
+        { id: 0, name: 'None' },
+        { name: 'NoId' },
+      ]),
+    )
+    const grid = await getGridChampions(http(get))
+    expect(grid).toEqual([{ id: 103, name: 'Ahri', disabled: false, owned: true }])
+  })
+
+  it('getPickable/BannableChampionIds tolèrent une réponse vide', async () => {
+    expect(await getPickableChampionIds(http(vi.fn(async () => ok([1, 2, 3]))))).toEqual([1, 2, 3])
+    expect(await getBannableChampionIds(http(vi.fn(async () => fail(404))))).toEqual([])
+  })
+
+  it('getSummonerSpells et getRunePages normalisent', async () => {
+    const spells = await getSummonerSpells(
+      http(vi.fn(async () => ok([{ id: 4, name: 'Flash', gameModes: ['CLASSIC'] }, { id: 0 }]))),
+    )
+    expect(spells).toEqual([{ id: 4, name: 'Flash', description: '', gameModes: ['CLASSIC'] }])
+
+    const pages = await getRunePages(
+      http(vi.fn(async () => ok([{ id: 7, name: 'Domination', current: true, selectedPerkIds: [1, 2] }]))),
+    )
+    expect(pages[0]).toMatchObject({ id: 7, name: 'Domination', current: true, selectedPerkIds: [1, 2] })
+  })
+})
+
+describe('champ-select : actions', () => {
+  it('hoverChampion PATCH { championId, completed:false }', async () => {
+    const patch = vi.fn(async () => ok(null, 204))
+    await hoverChampion(http(vi.fn(), vi.fn(), vi.fn(), patch), 21, 103)
+    expect(patch).toHaveBeenCalledWith('/lol-champ-select/v1/session/actions/21', {
+      championId: 103,
+      completed: false,
+    })
+  })
+
+  it('lockChampion PATCH { championId, completed:true } et propage l’erreur', async () => {
+    const patch = vi.fn(async () => ok(null, 204))
+    await lockChampion(http(vi.fn(), vi.fn(), vi.fn(), patch), 21, 103)
+    expect(patch).toHaveBeenCalledWith('/lol-champ-select/v1/session/actions/21', {
+      championId: 103,
+      completed: true,
+    })
+    await expect(
+      lockChampion(http(vi.fn(), vi.fn(), vi.fn(), vi.fn(async () => fail(409))), 21, 103),
+    ).rejects.toBeInstanceOf(LcuError)
+  })
+
+  it('setSummonerSpells PATCH my-selection', async () => {
+    const patch = vi.fn(async () => ok(null, 204))
+    await setSummonerSpells(http(vi.fn(), vi.fn(), vi.fn(), patch), 4, 14)
+    expect(patch).toHaveBeenCalledWith('/lol-champ-select/v1/session/my-selection', {
+      spell1Id: 4,
+      spell2Id: 14,
+    })
+  })
+
+  it('setCurrentRunePage PUT currentpage avec l’id brut', async () => {
+    const put = vi.fn(async () => ok(null, 204))
+    await setCurrentRunePage(http(vi.fn(), vi.fn(), vi.fn(), vi.fn(), put), 42)
+    expect(put).toHaveBeenCalledWith('/lol-perks/v1/currentpage', 42)
   })
 })
 

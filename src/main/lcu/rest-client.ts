@@ -30,6 +30,8 @@ export interface LcuRestClient {
   request<T = unknown>(method: string, path: string, body?: unknown): Promise<LcuResponse<T>>
   get<T = unknown>(path: string): Promise<LcuResponse<T>>
   post<T = unknown>(path: string, body?: unknown): Promise<LcuResponse<T>>
+  patch<T = unknown>(path: string, body?: unknown): Promise<LcuResponse<T>>
+  put<T = unknown>(path: string, body?: unknown): Promise<LcuResponse<T>>
   delete<T = unknown>(path: string): Promise<LcuResponse<T>>
   /** Récupère une ressource binaire (ex. icône d'invocateur servie localement). */
   requestRaw(method: string, path: string): Promise<LcuRawResponse>
@@ -144,6 +146,8 @@ export function createRestClient(
     request,
     get: (path) => request('GET', path),
     post: (path, body) => request('POST', path, body),
+    patch: (path, body) => request('PATCH', path, body),
+    put: (path, body) => request('PUT', path, body),
     delete: (path) => request('DELETE', path),
     requestRaw,
   }
