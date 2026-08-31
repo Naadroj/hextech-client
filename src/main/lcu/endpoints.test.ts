@@ -213,19 +213,36 @@ describe('createPracticeToolLobby / createCustomLobby', () => {
     ).rejects.toBeInstanceOf(LcuError)
   })
 
-  it('quitte le lobby courant avant de créer le lobby personnalisé', async () => {
+  it('quitte le lobby courant + réveille le sous-système avant de créer', async () => {
     const order: string[] = []
     const del = vi.fn(async () => {
       order.push('delete')
       return ok(null, 204)
     })
+    const get = vi.fn(async () => {
+      order.push('get')
+      return ok([])
+    })
     const post = vi.fn(async () => {
       order.push('post')
       return ok({ partyId: 'p' })
     })
-    await createCustomLobby(http(vi.fn(), post, del))
+    await createCustomLobby(http(get, post, del))
     expect(del).toHaveBeenCalledWith('/lol-lobby/v2/lobby')
-    expect(order).toEqual(['delete', 'post'])
+    expect(get).toHaveBeenCalledWith('/lol-lobby/v2/lobby/custom/available-bots')
+    expect(order).toEqual(['delete', 'get', 'post'])
+  })
+
+  it('retente une fois après un échec (cycle lobby jetable)', async () => {
+    let customPosts = 0
+    const post = vi.fn(async (_path: string, body?: unknown) => {
+      if (body && typeof body === 'object' && 'queueId' in body) return ok(null) // lobby jetable
+      customPosts += 1
+      return customPosts === 1 ? fail(500, { message: 'INVALID_LOBBY' }) : ok({ partyId: 'ok' })
+    })
+    const lobby = await createPracticeToolLobby(http(vi.fn(), post))
+    expect(lobby).toMatchObject({ partyId: 'ok' })
+    expect(customPosts).toBe(2)
   })
 })
 
