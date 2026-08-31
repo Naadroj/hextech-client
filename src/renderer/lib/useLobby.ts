@@ -19,7 +19,11 @@ export interface LobbyController {
 }
 
 function message(err: unknown): string {
-  return err instanceof Error ? err.message : 'Action impossible'
+  const raw = err instanceof Error ? err.message : ''
+  if (/INVALID_LOBBY/i.test(raw) || (/lobby/i.test(raw) && /HTTP 5\d\d/.test(raw))) {
+    return "Impossible de créer ce lobby. Quitte d'abord ta partie ou ton lobby en cours, puis réessaie."
+  }
+  return raw || 'Action impossible'
 }
 
 /**

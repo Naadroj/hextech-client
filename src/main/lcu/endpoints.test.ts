@@ -212,6 +212,21 @@ describe('createPracticeToolLobby / createCustomLobby', () => {
       createPracticeToolLobby(http(vi.fn(), vi.fn(async () => fail(500)))),
     ).rejects.toBeInstanceOf(LcuError)
   })
+
+  it('quitte le lobby courant avant de créer le lobby personnalisé', async () => {
+    const order: string[] = []
+    const del = vi.fn(async () => {
+      order.push('delete')
+      return ok(null, 204)
+    })
+    const post = vi.fn(async () => {
+      order.push('post')
+      return ok({ partyId: 'p' })
+    })
+    await createCustomLobby(http(vi.fn(), post, del))
+    expect(del).toHaveBeenCalledWith('/lol-lobby/v2/lobby')
+    expect(order).toEqual(['delete', 'post'])
+  })
 })
 
 describe('lobby & matchmaking', () => {

@@ -198,24 +198,35 @@ function customLobbyBody(gameMode: 'PRACTICETOOL' | 'CLASSIC', lobbyName: string
   }
 }
 
-/** Crée un lobby « Outil d'entraînement » (Practice Tool). */
-export async function createPracticeToolLobby(http: HttpLike): Promise<Lobby> {
-  const res = await http.post<Lobby>(
-    '/lol-lobby/v2/lobby',
-    customLobbyBody('PRACTICETOOL', "Outil d'entraînement"),
-  )
-  if (!res.ok) throw new LcuError('/lol-lobby/v2/lobby (practice)', res.status, res.data)
+/**
+ * La création d'un lobby personnalisé échoue (`INVALID_LOBBY`) si le joueur est
+ * déjà dans un lobby : on quitte d'abord (best-effort) puis on laisse au client
+ * un court instant pour se remettre à zéro.
+ */
+async function leaveThenCreateCustom(
+  http: HttpLike,
+  body: ReturnType<typeof customLobbyBody>,
+  label: string,
+): Promise<Lobby> {
+  try {
+    await http.delete('/lol-lobby/v2/lobby')
+    await new Promise((r) => setTimeout(r, 200))
+  } catch {
+    // pas de lobby à quitter : on continue
+  }
+  const res = await http.post<Lobby>('/lol-lobby/v2/lobby', body)
+  if (!res.ok) throw new LcuError(`/lol-lobby/v2/lobby (${label})`, res.status, res.data)
   return res.data
 }
 
+/** Crée un lobby « Outil d'entraînement » (Practice Tool). */
+export function createPracticeToolLobby(http: HttpLike): Promise<Lobby> {
+  return leaveThenCreateCustom(http, customLobbyBody('PRACTICETOOL', 'PRACTICETOOL'), 'practice')
+}
+
 /** Crée un lobby de partie personnalisée (Faille de l'invocateur). */
-export async function createCustomLobby(http: HttpLike): Promise<Lobby> {
-  const res = await http.post<Lobby>(
-    '/lol-lobby/v2/lobby',
-    customLobbyBody('CLASSIC', 'Partie personnalisée'),
-  )
-  if (!res.ok) throw new LcuError('/lol-lobby/v2/lobby (custom)', res.status, res.data)
-  return res.data
+export function createCustomLobby(http: HttpLike): Promise<Lobby> {
+  return leaveThenCreateCustom(http, customLobbyBody('CLASSIC', 'CUSTOMGAME'), 'custom')
 }
 
 export async function leaveLobby(http: HttpLike): Promise<void> {
