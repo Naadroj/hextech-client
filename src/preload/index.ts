@@ -22,6 +22,10 @@ const api: AppApi = {
       ipcRenderer.invoke(IpcChannels.lcuGetProfileIcon, iconId),
     acceptReadyCheck: () => ipcRenderer.invoke(IpcChannels.lcuAcceptReadyCheck),
     declineReadyCheck: () => ipcRenderer.invoke(IpcChannels.lcuDeclineReadyCheck),
+    createLobby: (queueId: number) => ipcRenderer.invoke(IpcChannels.lcuCreateLobby, queueId),
+    leaveLobby: () => ipcRenderer.invoke(IpcChannels.lcuLeaveLobby),
+    startMatchmaking: () => ipcRenderer.invoke(IpcChannels.lcuStartMatchmaking),
+    stopMatchmaking: () => ipcRenderer.invoke(IpcChannels.lcuStopMatchmaking),
     read: (path: string) => ipcRenderer.invoke(IpcChannels.lcuRead, path),
     onConnectionChanged: (cb: (info: ConnectionInfo) => void) =>
       subscribe<ConnectionInfo>(IpcChannels.lcuConnectionChanged, cb),

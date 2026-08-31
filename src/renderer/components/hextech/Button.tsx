@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react'
 import { cn } from '../../lib/cn'
 
-export type ButtonVariant = 'default' | 'accept' | 'ban'
+export type ButtonVariant = 'default' | 'primary' | 'accept' | 'ban'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
@@ -9,6 +9,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_CLASS: Record<ButtonVariant, string> = {
   default: '',
+  primary: 'hx-btn--primary',
   accept: 'hx-btn--accept',
   ban: 'hx-btn--ban',
 }

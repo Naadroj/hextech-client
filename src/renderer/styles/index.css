@@ -109,6 +109,12 @@
   .hx-btn:disabled {
     @apply cursor-not-allowed border-gold-800 opacity-40;
   }
+  .hx-btn--primary {
+    @apply border-rune-cyan text-rune-cyan;
+  }
+  .hx-btn--primary:hover:not(:disabled) {
+    @apply bg-rune-cyan text-hextech-black shadow-glow-cyan;
+  }
   .hx-btn--accept {
     @apply animate-ready-flash border-rune-cyan text-rune-cyan;
   }

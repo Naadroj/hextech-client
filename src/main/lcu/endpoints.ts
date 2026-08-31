@@ -2,6 +2,9 @@ import type { LcuResponse } from './rest-client'
 import type {
   CurrentSummoner,
   GameflowPhase,
+  GameQueue,
+  Lobby,
+  MatchmakingSearch,
   RankedEntry,
   RankedStats,
   ReadyCheck,
@@ -10,6 +13,11 @@ import type {
 export type {
   CurrentSummoner,
   GameflowPhase,
+  GameQueue,
+  Lobby,
+  LobbyMember,
+  MatchmakingSearch,
+  MatchmakingSearchState,
   RankedEntry,
   RankedStats,
   ReadyCheck,
@@ -27,6 +35,7 @@ export type {
 export interface HttpLike {
   get<T = unknown>(path: string): Promise<LcuResponse<T>>
   post<T = unknown>(path: string, body?: unknown): Promise<LcuResponse<T>>
+  delete<T = unknown>(path: string): Promise<LcuResponse<T>>
 }
 
 export class LcuError extends Error {
@@ -108,4 +117,79 @@ export async function getCurrentRankedStats(http: HttpLike): Promise<RankedStats
     soloDuo: normalizeRankedEntry(queues['RANKED_SOLO_5x5']),
     flex: normalizeRankedEntry(queues['RANKED_FLEX_SR']),
   }
+}
+
+// ─── /lol-game-queues ───────────────────────────────────────────────────────
+
+type RawQueue = Partial<GameQueue> & { queueAvailability?: string }
+
+/** Files de jeu PvP disponibles, normalisées pour le sélecteur de mode. */
+export async function getGameQueues(http: HttpLike): Promise<GameQueue[]> {
+  const res = await http.get<RawQueue[]>('/lol-game-queues/v1/queues')
+  if (!res.ok || !Array.isArray(res.data)) return []
+  return res.data
+    .filter(
+      (q): q is RawQueue =>
+        !!q &&
+        typeof q.id === 'number' &&
+        q.category === 'PvP' &&
+        q.queueAvailability === 'Available',
+    )
+    .map((q) => ({
+      id: q.id as number,
+      name: q.name ?? q.shortName ?? `File ${q.id}`,
+      shortName: q.shortName ?? '',
+      description: q.description ?? '',
+      category: q.category ?? '',
+      gameMode: q.gameMode ?? '',
+      isRanked: Boolean(q.isRanked),
+      mapId: q.mapId ?? 0,
+    }))
+}
+
+// ─── /lol-lobby ─────────────────────────────────────────────────────────────
+
+/** Lobby courant, ou `null` si le joueur n'est dans aucun lobby (HTTP 404). */
+export async function getLobby(http: HttpLike): Promise<Lobby | null> {
+  const res = await http.get<Lobby>('/lol-lobby/v2/lobby')
+  if (res.status === 404) return null
+  if (!res.ok) throw new LcuError('/lol-lobby/v2/lobby', res.status, res.data)
+  return res.data
+}
+
+export async function createLobby(http: HttpLike, queueId: number): Promise<Lobby> {
+  const res = await http.post<Lobby>('/lol-lobby/v2/lobby', { queueId })
+  if (!res.ok) throw new LcuError('/lol-lobby/v2/lobby', res.status, res.data)
+  return res.data
+}
+
+export async function leaveLobby(http: HttpLike): Promise<void> {
+  const res = await http.delete('/lol-lobby/v2/lobby')
+  if (!res.ok && res.status !== 404) {
+    throw new LcuError('DELETE /lol-lobby/v2/lobby', res.status, res.data)
+  }
+}
+
+export async function startMatchmaking(http: HttpLike): Promise<void> {
+  const res = await http.post('/lol-lobby/v2/lobby/matchmaking/search', {})
+  if (!res.ok) {
+    throw new LcuError('/lol-lobby/v2/lobby/matchmaking/search', res.status, res.data)
+  }
+}
+
+export async function stopMatchmaking(http: HttpLike): Promise<void> {
+  const res = await http.delete('/lol-lobby/v2/lobby/matchmaking/search')
+  if (!res.ok && res.status !== 404) {
+    throw new LcuError('DELETE /lol-lobby/v2/lobby/matchmaking/search', res.status, res.data)
+  }
+}
+
+// ─── /lol-matchmaking ───────────────────────────────────────────────────────
+
+/** État de la recherche de partie, ou `null` hors file (HTTP 404). */
+export async function getMatchmakingSearch(http: HttpLike): Promise<MatchmakingSearch | null> {
+  const res = await http.get<MatchmakingSearch>('/lol-matchmaking/v1/search')
+  if (res.status === 404) return null
+  if (!res.ok) throw new LcuError('/lol-matchmaking/v1/search', res.status, res.data)
+  return res.data
 }

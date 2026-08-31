@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 import type { ConnectionInfo } from '@shared/lcu-types'
 import { useLcuConnection } from './useLcuConnection'
 import { stubLcuBridge, clearLcuBridge } from '../test-utils'
@@ -26,10 +26,10 @@ describe('useLcuConnection', () => {
     const { result } = renderHook(() => useLcuConnection())
     await waitFor(() => expect(result.current.status).toBe('idle'))
 
-    ctx.emitters.connection?.({ status: 'connecting', summoner: null })
+    act(() => ctx.emitters.connection?.({ status: 'connecting', summoner: null }))
     await waitFor(() => expect(result.current.status).toBe('connecting'))
 
-    ctx.emitters.connection?.({ status: 'connected', summoner: { summonerId: 9 } as never })
+    act(() => ctx.emitters.connection?.({ status: 'connected', summoner: { summonerId: 9 } as never }))
     await waitFor(() => expect(result.current.summoner?.summonerId).toBe(9))
   })
 

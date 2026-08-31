@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { TitleBar } from './components/layout/TitleBar'
 import { NavRail, type NavItem } from './components/layout/NavRail'
 import { StatusBadge } from './components/layout/StatusBadge'
+import { ReadyCheckModal } from './components/ReadyCheckModal'
 import { KitchenSink } from './views/KitchenSink'
 import { Home } from './views/Home'
+import { Lobby } from './views/Lobby'
 import { useLcuConnection } from './lib/useLcuConnection'
 
 const NAV: NavItem[] = [
@@ -14,6 +16,8 @@ const NAV: NavItem[] = [
   { id: 'social', label: 'Amis' },
   { id: 'kit', label: 'Kitchen Sink' },
 ]
+
+const IMPLEMENTED = new Set(['home', 'lobby', 'kit'])
 
 export default function App() {
   const [active, setActive] = useState('home')
@@ -32,8 +36,9 @@ export default function App() {
         />
         <main className="flex-1 overflow-y-auto p-8">
           {active === 'home' && <Home connection={connection} />}
+          {active === 'lobby' && <Lobby connection={connection} />}
           {active === 'kit' && <KitchenSink />}
-          {active !== 'home' && active !== 'kit' && (
+          {!IMPLEMENTED.has(active) && (
             <div className="hx-panel">
               <h2>{activeLabel}</h2>
               <div className="hx-divider" />
@@ -42,6 +47,7 @@ export default function App() {
           )}
         </main>
       </div>
+      <ReadyCheckModal />
     </div>
   )
 }

@@ -32,6 +32,10 @@ export interface LcuBridge {
   getProfileIcon: (iconId: number) => Promise<string | null>
   acceptReadyCheck: () => Promise<void>
   declineReadyCheck: () => Promise<void>
+  createLobby: (queueId: number) => Promise<void>
+  leaveLobby: () => Promise<void>
+  startMatchmaking: () => Promise<void>
+  stopMatchmaking: () => Promise<void>
   read: <T = unknown>(path: string) => Promise<LcuReadResult<T>>
   /** Abonnement aux changements d'état de connexion ; retourne un désabonnement. */
   onConnectionChanged: (cb: (info: ConnectionInfo) => void) => () => void
@@ -56,6 +60,10 @@ export const IpcChannels = {
   lcuGetProfileIcon: 'lcu:get-profile-icon',
   lcuAcceptReadyCheck: 'lcu:accept-ready-check',
   lcuDeclineReadyCheck: 'lcu:decline-ready-check',
+  lcuCreateLobby: 'lcu:create-lobby',
+  lcuLeaveLobby: 'lcu:leave-lobby',
+  lcuStartMatchmaking: 'lcu:start-matchmaking',
+  lcuStopMatchmaking: 'lcu:stop-matchmaking',
   lcuRead: 'lcu:read',
   lcuConnectionChanged: 'lcu:connection-changed',
   lcuEvent: 'lcu:event',

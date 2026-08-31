@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { renderHook, waitFor, act } from '@testing-library/react'
 import type { CurrentSummoner } from '@shared/lcu-types'
 import { useProfile } from './useProfile'
 import { stubLcuBridge, clearLcuBridge } from '../test-utils'
@@ -55,7 +55,13 @@ describe('useProfile', () => {
     const { result } = renderHook(() => useProfile(true, summoner))
     await waitFor(() => expect(getRankedStats).toHaveBeenCalledTimes(1))
 
-    ctx.emitters.event?.({ eventType: 'Update', uri: '/lol-ranked/v1/current-ranked-stats', data: {} })
+    act(() =>
+      ctx.emitters.event?.({
+        eventType: 'Update',
+        uri: '/lol-ranked/v1/current-ranked-stats',
+        data: {},
+      }),
+    )
     await waitFor(() => expect(result.current.ranked.soloDuo?.tier).toBe('PLATINUM'))
   })
 })

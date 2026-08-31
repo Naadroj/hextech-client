@@ -1,7 +1,15 @@
 import { IpcChannels } from '../../shared/ipc'
 import type { ConnectionInfo, LcuEvent, RankedStats } from '../../shared/lcu-types'
 import type { LcuConnection } from '../lcu/connection'
-import { acceptReadyCheck, declineReadyCheck, getCurrentRankedStats } from '../lcu/endpoints'
+import {
+  acceptReadyCheck,
+  createLobby,
+  declineReadyCheck,
+  getCurrentRankedStats,
+  leaveLobby,
+  startMatchmaking,
+  stopMatchmaking,
+} from '../lcu/endpoints'
 import { logger } from '../logger'
 
 /**
@@ -23,6 +31,7 @@ const READ_WHITELIST: RegExp[] = [
   /^\/lol-store\/v\d+\//,
   /^\/lol-loot\/v\d+\//,
   /^\/lol-perks\/v\d+\//,
+  /^\/lol-game-queues\/v\d+\//,
   /^\/lol-game-data\//,
 ]
 
@@ -70,6 +79,10 @@ const HANDLED_CHANNELS: string[] = [
   IpcChannels.lcuGetProfileIcon,
   IpcChannels.lcuAcceptReadyCheck,
   IpcChannels.lcuDeclineReadyCheck,
+  IpcChannels.lcuCreateLobby,
+  IpcChannels.lcuLeaveLobby,
+  IpcChannels.lcuStartMatchmaking,
+  IpcChannels.lcuStopMatchmaking,
   IpcChannels.lcuRead,
 ]
 
@@ -136,6 +149,34 @@ export function registerLcuIpc(deps: RegisterLcuIpcDeps): () => void {
     const rest = connection.restClient
     if (!rest) throw new Error('LCU hors ligne')
     await declineReadyCheck(rest)
+  })
+
+  ipcMain.handle(IpcChannels.lcuCreateLobby, async (_event, ...args) => {
+    const queueId = args[0]
+    if (typeof queueId !== 'number' || !Number.isInteger(queueId) || queueId <= 0) {
+      throw new Error('queueId invalide')
+    }
+    const rest = connection.restClient
+    if (!rest) throw new Error('LCU hors ligne')
+    await createLobby(rest, queueId)
+  })
+
+  ipcMain.handle(IpcChannels.lcuLeaveLobby, async () => {
+    const rest = connection.restClient
+    if (!rest) throw new Error('LCU hors ligne')
+    await leaveLobby(rest)
+  })
+
+  ipcMain.handle(IpcChannels.lcuStartMatchmaking, async () => {
+    const rest = connection.restClient
+    if (!rest) throw new Error('LCU hors ligne')
+    await startMatchmaking(rest)
+  })
+
+  ipcMain.handle(IpcChannels.lcuStopMatchmaking, async () => {
+    const rest = connection.restClient
+    if (!rest) throw new Error('LCU hors ligne')
+    await stopMatchmaking(rest)
   })
 
   ipcMain.handle(IpcChannels.lcuRead, async (_event, ...args) => {

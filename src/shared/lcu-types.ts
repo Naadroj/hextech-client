@@ -63,6 +63,60 @@ export type GameflowPhase =
   | 'EndOfGame'
   | 'TerminatedInError'
 
+// ─── /lol-lobby & /lol-matchmaking ────────────────────────────────────────
+
+export interface LobbyMember {
+  summonerId: number
+  summonerName: string
+  puuid: string
+  isLeader: boolean
+  isBot: boolean
+}
+
+export interface Lobby {
+  partyId: string
+  canStartActivity: boolean
+  gameConfig: {
+    queueId: number
+    mapId: number
+    gameMode: string
+    maxLobbySize: number
+    isCustom: boolean
+    showPositionSelector: boolean
+  }
+  members: LobbyMember[]
+  localMember: LobbyMember | null
+}
+
+export type MatchmakingSearchState =
+  | 'Invalid'
+  | 'Searching'
+  | 'Found'
+  | 'Error'
+  | 'AbandonedLowPriority'
+  | 'ServiceShutdown'
+  | 'ServiceError'
+
+export interface MatchmakingSearch {
+  searchState: MatchmakingSearchState
+  timeInQueue: number
+  estimatedQueueTime: number
+  isCurrentlyInQueue: boolean
+  readyCheck?: ReadyCheck
+  errors?: { id: number; errorType: string; message: string; penaltyTimeRemaining: number }[]
+}
+
+export interface GameQueue {
+  id: number
+  name: string
+  shortName: string
+  description: string
+  category: string
+  gameMode: string
+  isRanked: boolean
+  mapId: number
+}
+
 // ─── /lol-ranked ──────────────────────────────────────────────────────────
 
 export interface RankedEntry {

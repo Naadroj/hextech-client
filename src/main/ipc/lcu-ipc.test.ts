@@ -31,7 +31,7 @@ function makeRest(over: Record<string, unknown> = {}) {
     request: vi.fn(async () => ({ status: 200, ok: true, data: { hello: 'world' } })),
     get: vi.fn(),
     post: vi.fn(async () => ({ status: 204, ok: true, data: null })),
-    delete: vi.fn(),
+    delete: vi.fn(async () => ({ status: 204, ok: true, data: null })),
     requestRaw: vi.fn(async () => ({
       status: 200,
       ok: true,
@@ -69,6 +69,9 @@ describe('isReadPathAllowed', () => {
     expect(isReadPathAllowed('/lol-summoner/v1/current-summoner')).toBe(true)
     expect(isReadPathAllowed('/lol-champ-select/v1/session')).toBe(true)
     expect(isReadPathAllowed('/lol-game-data/assets/v1/x.png')).toBe(true)
+  })
+  it('accepte /lol-game-queues (Phase 5)', () => {
+    expect(isReadPathAllowed('/lol-game-queues/v1/queues')).toBe(true)
   })
   it('rejette hors liste blanche, chemins relatifs et non absolus', () => {
     expect(isReadPathAllowed('/lol-login/v1/session')).toBe(false)
@@ -165,6 +168,31 @@ describe('registerLcuIpc — handlers', () => {
     ctx.conn.rest = makeRest()
     await ctx.ipcMain.invoke(IpcChannels.lcuAcceptReadyCheck)
     expect(ctx.conn.rest.post).toHaveBeenCalledWith('/lol-matchmaking/v1/ready-check/accept', {})
+  })
+
+  it('lcu:create-lobby valide le queueId et POSTe', async () => {
+    ctx.conn.rest = makeRest({ post: vi.fn(async () => ({ status: 200, ok: true, data: {} })) })
+    await expect(ctx.ipcMain.invoke(IpcChannels.lcuCreateLobby, -1)).rejects.toThrow(/queueId/)
+    await expect(ctx.ipcMain.invoke(IpcChannels.lcuCreateLobby, 'x')).rejects.toThrow(/queueId/)
+
+    await ctx.ipcMain.invoke(IpcChannels.lcuCreateLobby, 450)
+    expect(ctx.conn.rest.post).toHaveBeenCalledWith('/lol-lobby/v2/lobby', { queueId: 450 })
+  })
+
+  it('lcu:leave-lobby / start / stop matchmaking exigent un client', async () => {
+    for (const ch of [
+      IpcChannels.lcuLeaveLobby,
+      IpcChannels.lcuStartMatchmaking,
+      IpcChannels.lcuStopMatchmaking,
+    ]) {
+      await expect(ctx.ipcMain.invoke(ch)).rejects.toThrow(/hors ligne/)
+    }
+
+    ctx.conn.rest = makeRest()
+    await ctx.ipcMain.invoke(IpcChannels.lcuStartMatchmaking)
+    expect(ctx.conn.rest.post).toHaveBeenCalledWith('/lol-lobby/v2/lobby/matchmaking/search', {})
+    await ctx.ipcMain.invoke(IpcChannels.lcuStopMatchmaking)
+    expect(ctx.conn.rest.delete).toHaveBeenCalledWith('/lol-lobby/v2/lobby/matchmaking/search')
   })
 })
 
