@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    overflow: hidden;
+    @apply bg-hextech-black font-body text-gold-100 antialiased;
+    background-image: radial-gradient(ellipse at top, #0a1a2f 0%, #010a13 70%);
+  }
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    @apply font-display uppercase tracking-wide text-gold-300;
+    text-shadow: 0 1px 2px #000;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #010a13;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #785a28;
+    border: 1px solid #c8aa6e;
+  }
+}
+
+@layer components {
+  /* ─── Barre de titre (fenêtre frameless) ─── */
+  .hx-titlebar {
+    -webkit-app-region: drag;
+    @apply flex h-9 shrink-0 items-center justify-between border-b border-gold-600 bg-hextech-black px-4;
+  }
+  .hx-titlebar__brand {
+    @apply font-display text-xs uppercase tracking-[0.3em] text-gold-300;
+  }
+  .hx-titlebar__actions {
+    -webkit-app-region: no-drag;
+    @apply flex items-center gap-1;
+  }
+  .hx-titlebar__actions button {
+    @apply grid h-6 w-8 place-items-center text-gold-600 transition-colors hover:text-gold-100;
+  }
+  .hx-titlebar__actions button.is-close:hover {
+    @apply text-danger;
+  }
+
+  /* ─── Séparateur doré (barre + losange) ─── */
+  .hx-divider {
+    @apply relative my-4 h-px bg-gold-bar;
+  }
+  .hx-divider::after {
+    content: '';
+    @apply absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-gold-300;
+    box-shadow: 0 0 6px #c89b3c;
+  }
+
+  /* ─── Panneau / carte à coins biseautés ─── */
+  .hx-panel {
+    @apply relative bg-panel-grad p-5 text-gold-100 shadow-inset-dark;
+    border: 1px solid #785a28;
+    clip-path: polygon(
+      10px 0,
+      100% 0,
+      100% calc(100% - 10px),
+      calc(100% - 10px) 100%,
+      0 100%,
+      0 10px
+    );
+  }
+  .hx-panel::before {
+    content: '';
+    @apply pointer-events-none absolute inset-[3px];
+    border: 1px solid rgba(200, 170, 110, 0.35);
+    clip-path: inherit;
+  }
+
+  /* ─── Bouton métallique biseauté ─── */
+  .hx-btn {
+    @apply relative border border-gold-300 px-6 py-2 font-display text-sm uppercase tracking-wider text-gold-100 outline-none transition-all duration-150;
+    clip-path: polygon(
+      6px 0,
+      100% 0,
+      100% calc(100% - 6px),
+      calc(100% - 6px) 100%,
+      0 100%,
+      0 6px
+    );
+  }
+  .hx-btn:hover:not(:disabled) {
+    @apply bg-gold-btn text-hextech-black shadow-glow-gold;
+  }
+  .hx-btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .hx-btn:focus-visible {
+    @apply shadow-glow-cyan;
+  }
+  .hx-btn:disabled {
+    @apply cursor-not-allowed border-gold-800 opacity-40;
+  }
+  .hx-btn--accept {
+    @apply animate-ready-flash border-rune-cyan text-rune-cyan;
+  }
+  .hx-btn--accept:hover:not(:disabled) {
+    @apply bg-rune-cyan text-hextech-black shadow-glow-cyan;
+  }
+  .hx-btn--ban {
+    @apply border-danger text-danger;
+  }
+  .hx-btn--ban:hover:not(:disabled) {
+    @apply bg-danger text-hextech-black;
+    box-shadow: none;
+  }
+
+  /* ─── Rail de navigation ─── */
+  .hx-nav {
+    @apply flex w-52 shrink-0 flex-col gap-1 border-r border-gold-600 py-4;
+    background-color: rgba(9, 20, 40, 0.4);
+  }
+  .hx-nav-item {
+    @apply flex cursor-pointer items-center gap-3 border-l-2 border-transparent px-4 py-3 text-left font-display text-xs uppercase tracking-widest text-gold-600 transition-colors;
+  }
+  .hx-nav-item:hover {
+    @apply text-gold-300;
+  }
+  .hx-nav-item[data-active='true'] {
+    @apply border-gold-300 bg-white/5 text-gold-100;
+  }
+
+  /* ─── Modale ─── */
+  .hx-modal-backdrop {
+    @apply fixed inset-0 z-50 grid place-items-center bg-black/70 p-6 backdrop-blur-sm;
+  }
+}
