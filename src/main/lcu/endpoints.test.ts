@@ -15,6 +15,8 @@ import {
   stopMatchmaking,
   getMatchmakingSearch,
   getTopMasteryChampionId,
+  createPracticeToolLobby,
+  createCustomLobby,
   LcuError,
   type HttpLike,
 } from './endpoints'
@@ -132,7 +134,7 @@ describe('getCurrentRankedStats', () => {
 })
 
 describe('getGameQueues', () => {
-  it('ne garde que les files PvP disponibles et les normalise', async () => {
+  it('garde PvP + VersusAi (dispo ou non) et normalise', async () => {
     const get = vi.fn(async () =>
       ok([
         {
@@ -146,19 +148,57 @@ describe('getGameQueues', () => {
           mapId: 11,
           queueAvailability: 'Available',
         },
-        { id: 2000, name: 'Tutorial', category: 'VersusAi', queueAvailability: 'Available' },
+        { id: 870, name: 'Coop', category: 'VersusAi', gameMode: 'CLASSIC', mapId: 11 },
         { id: 9999, name: 'Old', category: 'PvP', queueAvailability: 'PlatformDisabled' },
+        { id: 0, name: 'Custom', category: 'Custom', queueAvailability: 'Available' },
         null,
       ]),
     )
     const queues = await getGameQueues(http(get))
-    expect(queues).toHaveLength(1)
-    expect(queues[0]).toMatchObject({ id: 420, name: 'Ranked Solo/Duo', isRanked: true, mapId: 11 })
+    expect(queues.map((q) => q.id).sort((a, b) => a - b)).toEqual([420, 870, 9999])
+    expect(queues.find((q) => q.id === 9999)?.queueAvailability).toBe('PlatformDisabled')
+    // queueAvailability manquant -> 'Available' par défaut
+    expect(queues.find((q) => q.id === 870)?.queueAvailability).toBe('Available')
   })
 
   it('retourne [] si la réponse est inattendue', async () => {
     expect(await getGameQueues(http(vi.fn(async () => ok({ nope: true }))))).toEqual([])
     expect(await getGameQueues(http(vi.fn(async () => fail(500))))).toEqual([])
+  })
+})
+
+describe('createPracticeToolLobby / createCustomLobby', () => {
+  it('POSTe un lobby personnalisé PRACTICETOOL', async () => {
+    const post = vi.fn(async () => ok({ partyId: 'p' }))
+    await createPracticeToolLobby(http(vi.fn(), post))
+    expect(post).toHaveBeenCalledWith(
+      '/lol-lobby/v2/lobby',
+      expect.objectContaining({
+        isCustom: true,
+        customGameLobby: expect.objectContaining({
+          configuration: expect.objectContaining({ gameMode: 'PRACTICETOOL', mapId: 11 }),
+        }),
+      }),
+    )
+  })
+
+  it('POSTe un lobby personnalisé CLASSIC', async () => {
+    const post = vi.fn(async () => ok({ partyId: 'p' }))
+    await createCustomLobby(http(vi.fn(), post))
+    expect(post).toHaveBeenCalledWith(
+      '/lol-lobby/v2/lobby',
+      expect.objectContaining({
+        customGameLobby: expect.objectContaining({
+          configuration: expect.objectContaining({ gameMode: 'CLASSIC' }),
+        }),
+      }),
+    )
+  })
+
+  it('lève LcuError sur échec', async () => {
+    await expect(
+      createPracticeToolLobby(http(vi.fn(), vi.fn(async () => fail(500)))),
+    ).rejects.toBeInstanceOf(LcuError)
   })
 })
 

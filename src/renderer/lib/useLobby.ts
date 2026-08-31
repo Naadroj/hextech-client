@@ -11,6 +11,8 @@ export interface LobbyController {
   busy: boolean
   error: string | null
   createLobby: (queueId: number) => Promise<void>
+  createPracticeTool: () => Promise<void>
+  createCustom: () => Promise<void>
   leaveLobby: () => Promise<void>
   startSearch: () => Promise<void>
   stopSearch: () => Promise<void>
@@ -95,6 +97,8 @@ export function useLobby(connected: boolean): LobbyController {
     busy,
     error,
     createLobby: (queueId) => run(() => getLcu().createLobby(queueId)),
+    createPracticeTool: () => run(() => getLcu().createPracticeTool()),
+    createCustom: () => run(() => getLcu().createCustomLobby()),
     leaveLobby: () => run(() => getLcu().leaveLobby()),
     startSearch: () => run(() => getLcu().startMatchmaking()),
     stopSearch: () => run(() => getLcu().stopMatchmaking()),

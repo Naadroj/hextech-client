@@ -115,6 +115,8 @@ export interface GameQueue {
   gameMode: string
   isRanked: boolean
   mapId: number
+  /** 'Available' | 'PlatformDisabled' | 'DoesntMeetRequirements' | … */
+  queueAvailability: string
 }
 
 // ─── /lol-ranked ──────────────────────────────────────────────────────────

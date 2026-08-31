@@ -121,19 +121,22 @@ export async function getCurrentRankedStats(http: HttpLike): Promise<RankedStats
 
 // ─── /lol-game-queues ───────────────────────────────────────────────────────
 
-type RawQueue = Partial<GameQueue> & { queueAvailability?: string }
+type RawQueue = Partial<GameQueue>
 
-/** Files de jeu PvP disponibles, normalisées pour le sélecteur de mode. */
+const SELECTABLE_CATEGORIES = new Set(['PvP', 'VersusAi'])
+
+/**
+ * Files de jeu jouables (PvP + Coop vs IA), normalisées pour le sélecteur de
+ * mode. Les files indisponibles sont conservées (avec `queueAvailability`)
+ * pour être affichées grisées.
+ */
 export async function getGameQueues(http: HttpLike): Promise<GameQueue[]> {
   const res = await http.get<RawQueue[]>('/lol-game-queues/v1/queues')
   if (!res.ok || !Array.isArray(res.data)) return []
   return res.data
     .filter(
       (q): q is RawQueue =>
-        !!q &&
-        typeof q.id === 'number' &&
-        q.category === 'PvP' &&
-        q.queueAvailability === 'Available',
+        !!q && typeof q.id === 'number' && SELECTABLE_CATEGORIES.has(q.category ?? ''),
     )
     .map((q) => ({
       id: q.id as number,
@@ -144,6 +147,7 @@ export async function getGameQueues(http: HttpLike): Promise<GameQueue[]> {
       gameMode: q.gameMode ?? '',
       isRanked: Boolean(q.isRanked),
       mapId: q.mapId ?? 0,
+      queueAvailability: q.queueAvailability ?? 'Available',
     }))
 }
 
@@ -160,6 +164,45 @@ export async function getLobby(http: HttpLike): Promise<Lobby | null> {
 export async function createLobby(http: HttpLike, queueId: number): Promise<Lobby> {
   const res = await http.post<Lobby>('/lol-lobby/v2/lobby', { queueId })
   if (!res.ok) throw new LcuError('/lol-lobby/v2/lobby', res.status, res.data)
+  return res.data
+}
+
+function customLobbyBody(gameMode: 'PRACTICETOOL' | 'CLASSIC', lobbyName: string) {
+  return {
+    isCustom: true,
+    customGameLobby: {
+      lobbyName,
+      lobbyPassword: '',
+      configuration: {
+        gameMode,
+        gameMutator: '',
+        gameServerRegion: '',
+        mapId: 11,
+        mutators: { id: 1 },
+        spectatorPolicy: 'AllAllowed',
+        teamSize: 5,
+      },
+    },
+  }
+}
+
+/** Crée un lobby « Outil d'entraînement » (Practice Tool). */
+export async function createPracticeToolLobby(http: HttpLike): Promise<Lobby> {
+  const res = await http.post<Lobby>(
+    '/lol-lobby/v2/lobby',
+    customLobbyBody('PRACTICETOOL', "Outil d'entraînement"),
+  )
+  if (!res.ok) throw new LcuError('/lol-lobby/v2/lobby (practice)', res.status, res.data)
+  return res.data
+}
+
+/** Crée un lobby de partie personnalisée (Faille de l'invocateur). */
+export async function createCustomLobby(http: HttpLike): Promise<Lobby> {
+  const res = await http.post<Lobby>(
+    '/lol-lobby/v2/lobby',
+    customLobbyBody('CLASSIC', 'Partie personnalisée'),
+  )
+  if (!res.ok) throw new LcuError('/lol-lobby/v2/lobby (custom)', res.status, res.data)
   return res.data
 }
 

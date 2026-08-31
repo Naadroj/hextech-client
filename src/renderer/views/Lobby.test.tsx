@@ -26,20 +26,29 @@ describe('Lobby', () => {
     expect(screen.getByText(/lance le client officiel pour créer un lobby/i)).toBeInTheDocument()
   })
 
-  it('affiche la grille de modes et crée un lobby au clic', async () => {
+  it('sélecteur de mode imbriqué : catégorie → file → confirmation', async () => {
     const ctx = stubReads({
       '/lol-game-queues/v1/queues': [
-        { id: 450, name: 'ARAM', shortName: '', description: '', category: 'PvP', gameMode: 'ARAM', isRanked: false, mapId: 12 },
-        { id: 420, name: 'Ranked Solo/Duo', shortName: '', description: '', category: 'PvP', gameMode: 'CLASSIC', isRanked: true, mapId: 11 },
+        { id: 450, name: 'ARAM', category: 'PvP', gameMode: 'ARAM', isRanked: false, mapId: 12, queueAvailability: 'Available' },
+        { id: 420, name: 'Classé Solo/Duo', category: 'PvP', gameMode: 'CLASSIC', isRanked: true, mapId: 11, queueAvailability: 'Available' },
       ],
     })
     render(<Lobby connection={CONNECTED} />)
 
-    const ranked = await screen.findByRole('button', { name: /Ranked Solo\/Duo/ })
-    // 420 est prioritaire → apparaît avant ARAM
-    expect(screen.getByText('Classé')).toBeInTheDocument()
-    await userEvent.click(ranked)
+    // Catégorie "Faille de l'invocateur" active par défaut, file classée visible.
+    const rankedItem = await screen.findByRole('button', { name: /Classé Solo\/Duo/ })
+    const confirm = screen.getByRole('button', { name: /créer le lobby/i })
+    expect(confirm).toBeDisabled()
+
+    await userEvent.click(rankedItem)
+    await userEvent.click(confirm)
     expect(ctx.bridge.createLobby).toHaveBeenCalledWith(420)
+
+    // Catégorie Personnalisée -> Practice Tool
+    await userEvent.click(screen.getByRole('tab', { name: /Personnalisée/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Outil d'entraînement/ }))
+    await userEvent.click(screen.getByRole('button', { name: /créer le lobby/i }))
+    expect(ctx.bridge.createPracticeTool).toHaveBeenCalledOnce()
   })
 
   it('permet de lancer la recherche quand le lobby est prêt', async () => {

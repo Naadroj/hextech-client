@@ -1,5 +1,34 @@
 import { useState } from 'react'
 import { Button, Frame, Panel, Modal, PlayButton, Tag, IconFrame, Divider } from '../components/hextech'
+import { ModeSelect } from '../components/ModeSelect'
+import type { ModeCategory } from '../lib/gameModes'
+
+const DEMO_CATEGORIES: ModeCategory[] = [
+  {
+    id: 'rift',
+    label: "Faille de l'invocateur",
+    items: [
+      { key: 'queue:420', label: 'Classé Solo/Duo', subtitle: "Faille de l'invocateur · classé", isRanked: true, available: true, kind: 'queue', queueId: 420 },
+      { key: 'queue:400', label: 'Draft normale', subtitle: 'Sélection alternée', isRanked: false, available: true, kind: 'queue', queueId: 400 },
+      { key: 'queue:430', label: 'Partie normale', subtitle: "Sélection à l'aveugle", isRanked: false, available: false, unavailableReason: 'Indisponible actuellement', kind: 'queue', queueId: 430 },
+    ],
+  },
+  {
+    id: 'aram',
+    label: 'ARAM',
+    items: [
+      { key: 'queue:450', label: 'ARAM', subtitle: 'Abîme hurlant · champions aléatoires', isRanked: false, available: true, kind: 'queue', queueId: 450 },
+    ],
+  },
+  {
+    id: 'custom',
+    label: 'Personnalisée',
+    items: [
+      { key: 'practice', label: "Outil d'entraînement", subtitle: 'Practice Tool', isRanked: false, available: true, kind: 'practice' },
+      { key: 'custom', label: 'Partie personnalisée', subtitle: '5v5 privé', isRanked: false, available: true, kind: 'custom' },
+    ],
+  },
+]
 
 /** Galerie de référence du design system Hextech. */
 export function KitchenSink() {
@@ -62,6 +91,8 @@ export function KitchenSink() {
           <Swatch name="warn" className="bg-warn text-hextech-black" />
         </div>
       </Frame>
+
+      <ModeSelect categories={DEMO_CATEGORIES} onConfirm={() => {}} />
 
       <Frame title="Divers">
         <div className="flex flex-wrap items-center gap-6">

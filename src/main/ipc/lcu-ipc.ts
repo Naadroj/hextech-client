@@ -3,7 +3,9 @@ import type { ConnectionInfo, LcuEvent, RankedStats } from '../../shared/lcu-typ
 import type { LcuConnection } from '../lcu/connection'
 import {
   acceptReadyCheck,
+  createCustomLobby,
   createLobby,
+  createPracticeToolLobby,
   declineReadyCheck,
   getCurrentRankedStats,
   getTopMasteryChampionId,
@@ -83,6 +85,8 @@ const HANDLED_CHANNELS: string[] = [
   IpcChannels.lcuAcceptReadyCheck,
   IpcChannels.lcuDeclineReadyCheck,
   IpcChannels.lcuCreateLobby,
+  IpcChannels.lcuCreatePracticeTool,
+  IpcChannels.lcuCreateCustomLobby,
   IpcChannels.lcuLeaveLobby,
   IpcChannels.lcuStartMatchmaking,
   IpcChannels.lcuStopMatchmaking,
@@ -187,6 +191,18 @@ export function registerLcuIpc(deps: RegisterLcuIpcDeps): () => void {
     const rest = connection.restClient
     if (!rest) throw new Error('LCU hors ligne')
     await createLobby(rest, queueId)
+  })
+
+  ipcMain.handle(IpcChannels.lcuCreatePracticeTool, async () => {
+    const rest = connection.restClient
+    if (!rest) throw new Error('LCU hors ligne')
+    await createPracticeToolLobby(rest)
+  })
+
+  ipcMain.handle(IpcChannels.lcuCreateCustomLobby, async () => {
+    const rest = connection.restClient
+    if (!rest) throw new Error('LCU hors ligne')
+    await createCustomLobby(rest)
   })
 
   ipcMain.handle(IpcChannels.lcuLeaveLobby, async () => {

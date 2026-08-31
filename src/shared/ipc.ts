@@ -35,6 +35,8 @@ export interface LcuBridge {
   acceptReadyCheck: () => Promise<void>
   declineReadyCheck: () => Promise<void>
   createLobby: (queueId: number) => Promise<void>
+  createPracticeTool: () => Promise<void>
+  createCustomLobby: () => Promise<void>
   leaveLobby: () => Promise<void>
   startMatchmaking: () => Promise<void>
   stopMatchmaking: () => Promise<void>
@@ -64,6 +66,8 @@ export const IpcChannels = {
   lcuAcceptReadyCheck: 'lcu:accept-ready-check',
   lcuDeclineReadyCheck: 'lcu:decline-ready-check',
   lcuCreateLobby: 'lcu:create-lobby',
+  lcuCreatePracticeTool: 'lcu:create-practice-tool',
+  lcuCreateCustomLobby: 'lcu:create-custom-lobby',
   lcuLeaveLobby: 'lcu:leave-lobby',
   lcuStartMatchmaking: 'lcu:start-matchmaking',
   lcuStopMatchmaking: 'lcu:stop-matchmaking',

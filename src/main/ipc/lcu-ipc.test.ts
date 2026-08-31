@@ -199,6 +199,27 @@ describe('registerLcuIpc — handlers', () => {
     expect(ctx.conn.rest.post).toHaveBeenCalledWith('/lol-lobby/v2/lobby', { queueId: 450 })
   })
 
+  it('lcu:create-practice-tool / create-custom-lobby POSTent un lobby personnalisé', async () => {
+    await expect(ctx.ipcMain.invoke(IpcChannels.lcuCreatePracticeTool)).rejects.toThrow(/hors ligne/)
+
+    ctx.conn.rest = makeRest({ post: vi.fn(async () => ({ status: 200, ok: true, data: {} })) })
+    await ctx.ipcMain.invoke(IpcChannels.lcuCreatePracticeTool)
+    expect(ctx.conn.rest.post).toHaveBeenCalledWith(
+      '/lol-lobby/v2/lobby',
+      expect.objectContaining({ isCustom: true }),
+    )
+
+    await ctx.ipcMain.invoke(IpcChannels.lcuCreateCustomLobby)
+    expect(ctx.conn.rest.post).toHaveBeenLastCalledWith(
+      '/lol-lobby/v2/lobby',
+      expect.objectContaining({
+        customGameLobby: expect.objectContaining({
+          configuration: expect.objectContaining({ gameMode: 'CLASSIC' }),
+        }),
+      }),
+    )
+  })
+
   it('lcu:leave-lobby / start / stop matchmaking exigent un client', async () => {
     for (const ch of [
       IpcChannels.lcuLeaveLobby,
