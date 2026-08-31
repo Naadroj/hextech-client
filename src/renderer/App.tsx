@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { AppFrame } from './components/layout/AppFrame'
+import { SplashBackground } from './components/layout/SplashBackground'
 import { TitleBar } from './components/layout/TitleBar'
-import { NavRail, type NavItem } from './components/layout/NavRail'
+import { TopNav, type NavItem } from './components/layout/TopNav'
+import { SocialDock } from './components/layout/SocialDock'
 import { StatusBadge } from './components/layout/StatusBadge'
 import { ReadyCheckModal } from './components/ReadyCheckModal'
 import { KitchenSink } from './views/KitchenSink'
@@ -10,11 +13,11 @@ import { useLcuConnection } from './lib/useLcuConnection'
 
 const NAV: NavItem[] = [
   { id: 'home', label: 'Accueil' },
-  { id: 'lobby', label: 'Lobby' },
-  { id: 'champ', label: 'Champ Select' },
+  { id: 'lobby', label: 'Jouer' },
+  { id: 'champ', label: 'Sélection' },
   { id: 'shop', label: 'Boutique' },
   { id: 'social', label: 'Amis' },
-  { id: 'kit', label: 'Kitchen Sink' },
+  { id: 'kit', label: 'Composants' },
 ]
 
 const IMPLEMENTED = new Set(['home', 'lobby', 'kit'])
@@ -25,29 +28,31 @@ export default function App() {
   const activeLabel = NAV.find((n) => n.id === active)?.label ?? ''
 
   return (
-    <div className="flex h-full flex-col bg-hextech-black text-gold-100">
+    <AppFrame>
+      <SplashBackground connected={connection.status === 'connected'} />
       <TitleBar />
+      <TopNav
+        items={NAV}
+        activeId={active}
+        onSelect={setActive}
+        right={<StatusBadge status={connection.status} />}
+      />
       <div className="flex min-h-0 flex-1">
-        <NavRail
-          items={NAV}
-          activeId={active}
-          onSelect={setActive}
-          footer={<StatusBadge status={connection.status} />}
-        />
         <main className="flex-1 overflow-y-auto p-8">
           {active === 'home' && <Home connection={connection} />}
           {active === 'lobby' && <Lobby connection={connection} />}
           {active === 'kit' && <KitchenSink />}
           {!IMPLEMENTED.has(active) && (
-            <div className="hx-panel">
-              <h2>{activeLabel}</h2>
+            <div className="hx-frame max-w-xl">
+              <h2 className="text-lg">{activeLabel}</h2>
               <div className="hx-divider" />
-              <p className="text-gold-600">Vue à implémenter dans une phase ultérieure.</p>
+              <p className="text-parchment">Vue à implémenter dans une phase ultérieure.</p>
             </div>
           )}
         </main>
+        <SocialDock />
       </div>
       <ReadyCheckModal />
-    </div>
+    </AppFrame>
   )
 }

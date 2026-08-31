@@ -193,3 +193,24 @@ export async function getMatchmakingSearch(http: HttpLike): Promise<MatchmakingS
   if (!res.ok) throw new LcuError('/lol-matchmaking/v1/search', res.status, res.data)
   return res.data
 }
+
+// ─── /lol-champion-mastery ──────────────────────────────────────────────────
+
+interface MasteryEntry {
+  championId?: number
+  championPoints?: number
+}
+
+/** championId du champion le plus maîtrisé, ou `null`. */
+export async function getTopMasteryChampionId(http: HttpLike): Promise<number | null> {
+  const res = await http.get<MasteryEntry[]>(
+    '/lol-champion-mastery/v1/local-player/champion-mastery',
+  )
+  if (!res.ok || !Array.isArray(res.data) || res.data.length === 0) return null
+  let best: MasteryEntry | undefined
+  for (const entry of res.data) {
+    if (typeof entry?.championId !== 'number') continue
+    if (!best || (entry.championPoints ?? 0) > (best.championPoints ?? 0)) best = entry
+  }
+  return best?.championId ?? null
+}

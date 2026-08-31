@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ConnectionInfo, GameQueue } from '@shared/lcu-types'
-import { Button, Panel } from '../components/hextech'
+import { Button, Frame, PlayButton, Tag } from '../components/hextech'
 import { cn } from '../lib/cn'
 import { useGameflow } from '../lib/useGameflow'
 import { useLobby } from '../lib/useLobby'
@@ -19,9 +19,7 @@ function sortQueues(queues: GameQueue[]): GameQueue[] {
 
 function formatDuration(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds))
-  const mm = Math.floor(s / 60)
-  const ss = s % 60
-  return `${mm}:${ss.toString().padStart(2, '0')}`
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`
 }
 
 export function Lobby({ connection }: { connection: ConnectionInfo }) {
@@ -32,7 +30,6 @@ export function Lobby({ connection }: { connection: ConnectionInfo }) {
 
   const sortedQueues = useMemo(() => sortQueues(queues), [queues])
 
-  // Chrono local pendant la recherche, amorcé sur timeInQueue.
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
     if (!inQueue) {
@@ -46,25 +43,29 @@ export function Lobby({ connection }: { connection: ConnectionInfo }) {
 
   if (!connected) {
     return (
-      <Panel title="Lobby">
-        <p className="text-gold-600">
+      <Frame title="Lobby" className="mx-auto max-w-2xl">
+        <p className="text-parchment">
           En attente du client League of Legends. Lance le client officiel pour créer un lobby.
         </p>
-      </Panel>
+      </Frame>
     )
   }
 
   if (!lobby) {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto max-w-4xl space-y-6">
         <div>
           <h1 className="text-2xl">Choisir un mode</h1>
-          <p className="mt-1 text-sm text-gold-600">Crée un lobby pour la file sélectionnée.</p>
+          <p className="mt-1 text-sm text-parchment">Crée un lobby pour la file sélectionnée.</p>
         </div>
-        {error && <Panel className="border-danger text-danger">{error}</Panel>}
+        {error && (
+          <Frame className="border-decline text-decline" brackets={false} ornaments={false}>
+            {error}
+          </Frame>
+        )}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {sortedQueues.length === 0 && (
-            <p className="col-span-full text-gold-600">Aucune file disponible pour le moment.</p>
+            <p className="col-span-full text-parchment">Aucune file disponible pour le moment.</p>
           )}
           {sortedQueues.map((queue) => (
             <button
@@ -72,17 +73,13 @@ export function Lobby({ connection }: { connection: ConnectionInfo }) {
               type="button"
               disabled={busy}
               onClick={() => void createLobby(queue.id)}
-              className={cn(
-                'hx-panel text-left transition-colors hover:border-gold-300 disabled:opacity-50',
-              )}
+              className={cn('hx-mode-card')}
             >
-              <span className="block font-display uppercase tracking-wide text-gold-300">
-                {queue.name}
-              </span>
+              <span className="font-display uppercase tracking-hex text-gold-200">{queue.name}</span>
               {queue.isRanked && (
-                <span className="mt-1 block text-[11px] uppercase tracking-widest text-rune-cyan">
+                <Tag tone="cyan" className="mt-1 self-start">
                   Classé
-                </span>
+                </Tag>
               )}
             </button>
           ))}
@@ -95,52 +92,60 @@ export function Lobby({ connection }: { connection: ConnectionInfo }) {
   const canSearch = lobby.canStartActivity && !busy && phase !== 'Matchmaking'
 
   return (
-    <div className="space-y-6">
-      <Panel title={currentQueue?.name ?? `File ${lobby.gameConfig.queueId}`}>
+    <div className="mx-auto max-w-3xl space-y-6">
+      <Frame
+        title={currentQueue?.name ?? `File ${lobby.gameConfig.queueId}`}
+        headerRight={`Phase : ${phase}`}
+      >
         <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gold-100/80">
-              {lobby.members.length} / {lobby.gameConfig.maxLobbySize} invocateur(s)
-            </p>
-            <p className="mt-1 text-xs uppercase tracking-widest text-gold-600">Phase : {phase}</p>
-          </div>
-          <Button variant="ban" disabled={busy || inQueue} onClick={() => void leaveLobby()}>
+          <p className="text-sm text-parchment">
+            {lobby.members.length} / {lobby.gameConfig.maxLobbySize} invocateur(s)
+          </p>
+          <Button variant="ban" size="sm" disabled={busy || inQueue} onClick={() => void leaveLobby()}>
             Quitter
           </Button>
         </div>
-      </Panel>
+      </Frame>
 
-      {error && <Panel className="border-danger text-danger">{error}</Panel>}
+      {error && (
+        <Frame className="border-decline text-decline" brackets={false} ornaments={false}>
+          {error}
+        </Frame>
+      )}
 
-      <Panel>
+      <div className="flex flex-col items-center gap-3 py-4">
         {inQueue ? (
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-display text-lg text-gold-300">Recherche en cours</p>
-              <p className="mt-1 text-sm text-gold-600">
-                {formatDuration(elapsed)}
-                {search?.estimatedQueueTime
-                  ? ` · estimé ~${formatDuration(search.estimatedQueueTime)}`
-                  : ''}
-              </p>
-            </div>
-            <Button variant="ban" disabled={busy} onClick={() => void stopSearch()}>
+          <>
+            <p className="font-display text-lg uppercase tracking-hex text-gold-300">
+              Recherche en cours
+            </p>
+            <PlayButton
+              searching
+              elapsedLabel={formatDuration(elapsed)}
+              disabled={busy}
+              onClick={() => void stopSearch()}
+            >
               Annuler
-            </Button>
-          </div>
+            </PlayButton>
+            {search?.estimatedQueueTime ? (
+              <p className="text-xs text-parchment">
+                Estimé ~{formatDuration(search.estimatedQueueTime)}
+              </p>
+            ) : null}
+          </>
         ) : (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gold-100/80">
+          <>
+            <PlayButton disabled={!canSearch} onClick={() => void startSearch()}>
+              Rechercher une partie
+            </PlayButton>
+            <p className="text-xs text-parchment">
               {lobby.canStartActivity
-                ? 'Prêt à lancer la recherche de partie.'
+                ? 'Prêt à lancer la recherche.'
                 : 'En attente : lobby incomplet ou rôles non attribués.'}
             </p>
-            <Button variant="primary" disabled={!canSearch} onClick={() => void startSearch()}>
-              Rechercher une partie
-            </Button>
-          </div>
+          </>
         )}
-      </Panel>
+      </div>
     </div>
   )
 }

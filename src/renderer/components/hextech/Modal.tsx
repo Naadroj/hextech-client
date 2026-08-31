@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
+import { CornerBrackets } from './CornerBrackets'
 import { Divider } from './Divider'
 
 export interface ModalProps {
@@ -42,12 +43,13 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === 'string' ? title : undefined}
-        className={cn('hx-panel animate-pulse-gold w-full max-w-lg', className)}
+        className={cn('hx-modal', className)}
         onClick={(e) => e.stopPropagation()}
       >
+        <CornerBrackets />
         {title != null && (
           <>
-            <h2>{title}</h2>
+            <h2 className="text-center text-lg">{title}</h2>
             <Divider />
           </>
         )}

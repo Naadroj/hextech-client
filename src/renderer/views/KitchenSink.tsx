@@ -1,59 +1,81 @@
 import { useState } from 'react'
-import { Button, Panel, Modal } from '../components/hextech'
+import { Button, Frame, Panel, Modal, PlayButton, Tag, IconFrame, Divider } from '../components/hextech'
 
-/** Vitrine de tous les éléments du design system Hextech (Phase 1). */
+/** Galerie de référence du design system Hextech. */
 export function KitchenSink() {
   const [modalOpen, setModalOpen] = useState(false)
   const [readyOpen, setReadyOpen] = useState(false)
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-4xl space-y-8">
       <div>
         <h1 className="text-2xl">Design System Hextech</h1>
-        <p className="mt-1 text-sm text-gold-600">
-          Vitrine des composants — Phase 1. Sert de référence visuelle et de cible de tests.
+        <p className="mt-1 text-sm text-parchment">
+          Référence visuelle et cible de tests. Inspiré du client officiel (recréé, sans asset Riot).
         </p>
       </div>
 
-      <Panel title="Boutons">
-        <div className="flex flex-wrap items-center gap-4">
+      <Frame title="Boutons">
+        <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => setModalOpen(true)}>Défaut</Button>
+          <Button variant="gold">Or plein</Button>
+          <Button variant="primary">Primaire</Button>
           <Button variant="accept" onClick={() => setReadyOpen(true)}>
             Accepter
           </Button>
           <Button variant="ban">Bannir</Button>
           <Button disabled>Désactivé</Button>
+          <Button size="sm">Petit</Button>
+          <Button size="lg" variant="gold">
+            Grand
+          </Button>
         </div>
-      </Panel>
+        <Divider />
+        <PlayButton>Jouer</PlayButton>
+      </Frame>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Panel title="Carte à bordure or">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Frame title="Cadre ornemental">
           <p className="text-sm text-gold-100/80">
-            Coins biseautés via <code>clip-path</code>, liseré or interne, fond dégradé nuit.
+            Bordure or en dégradé <code>border-image</code>, hairline interne, équerres d'angle SVG,
+            barres d'ornement.
           </p>
-        </Panel>
-        <Panel title="Palette">
-          <div className="grid grid-cols-4 gap-2 text-[10px] uppercase">
-            <Swatch name="black" className="bg-hextech-black" />
-            <Swatch name="bg" className="bg-hextech-bg" />
-            <Swatch name="panel" className="bg-hextech-panel" />
-            <Swatch name="gold300" className="bg-gold-300 text-hextech-black" />
-            <Swatch name="gold400" className="bg-gold-400 text-hextech-black" />
-            <Swatch name="gold600" className="bg-gold-600" />
-            <Swatch name="rune.deep" className="bg-rune-deep" />
-            <Swatch name="rune.cyan" className="bg-rune-cyan text-hextech-black" />
-          </div>
+        </Frame>
+        <Panel title="Panneau simple">
+          <p className="text-sm text-gold-100/80">Gunmetal, fine bordure, sans ornement.</p>
         </Panel>
       </div>
 
-      <Panel title="Séparateur">
-        <p className="text-sm text-gold-100/80">Barre dorée avec losange central.</p>
-      </Panel>
+      <Frame title="Palette">
+        <div className="grid grid-cols-4 gap-2 text-[10px] uppercase md:grid-cols-6">
+          <Swatch name="black" className="bg-hextech-black" />
+          <Swatch name="bg" className="bg-hextech-bg" />
+          <Swatch name="gun" className="bg-hextech-gun" />
+          <Swatch name="gold400" className="bg-gold-400 text-hextech-black" />
+          <Swatch name="gold200" className="bg-gold-200 text-hextech-black" />
+          <Swatch name="gold600" className="bg-gold-600" />
+          <Swatch name="rune.deep" className="bg-rune-deep" />
+          <Swatch name="rune.teal" className="bg-rune-teal text-hextech-black" />
+          <Swatch name="rune.text" className="bg-rune-text text-hextech-black" />
+          <Swatch name="decline" className="bg-decline text-hextech-black" />
+          <Swatch name="ok" className="bg-ok text-hextech-black" />
+          <Swatch name="warn" className="bg-warn text-hextech-black" />
+        </div>
+      </Frame>
+
+      <Frame title="Divers">
+        <div className="flex flex-wrap items-center gap-6">
+          <IconFrame size={72} level={312} />
+          <Tag>Étiquette</Tag>
+          <Tag tone="cyan">Cyan</Tag>
+          <div className="w-40">
+            <span className="hx-divider" />
+          </div>
+        </div>
+      </Frame>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Modale standard">
-        <p className="text-sm text-gold-100/80">
-          Fermeture au clic sur le fond ou avec la touche Échap.
-        </p>
+        <p className="text-sm text-gold-100/80">Fermeture au clic sur le fond ou avec Échap.</p>
         <div className="mt-4 flex justify-end">
           <Button onClick={() => setModalOpen(false)}>Fermer</Button>
         </div>
@@ -65,7 +87,7 @@ export function KitchenSink() {
         title="Partie trouvée"
         className="text-center"
       >
-        <p className="text-sm text-gold-100/80">Aperçu de la future modale Ready Check.</p>
+        <p className="text-sm text-gold-100/80">Aperçu Ready Check.</p>
         <div className="mt-4 flex justify-center gap-4">
           <Button variant="accept" onClick={() => setReadyOpen(false)}>
             Accepter

@@ -31,7 +31,8 @@ npm run assets     # (re)génère build/icon.png et build/tray.png
 | `src/main/lcu/` | Cœur LCU : lockfile, credentials, REST, WebSocket, orchestrateur |
 | `src/main/ipc/` | Surface IPC du pont LCU (liste blanche, relais d'événements) |
 | `src/preload/` | Pont `contextBridge` sécurisé vers le renderer |
-| `src/renderer/` | UI React (composants Hextech, vues) |
+| `src/renderer/` | UI React (design system Hextech, shell, vues) |
+| `src/renderer/public/fonts/` | Emplacement optionnel pour Beaufort/Spiegel (voir README local) |
 | `src/shared/` | Types et utilitaires partagés main ↔ renderer |
 | `resources/` | Fichiers embarqués au runtime (`riotgames.pem`, SFX) |
 | `test/` | Setup Vitest + fixtures (cert auto-signé pour les tests HTTPS) |
@@ -44,6 +45,7 @@ npm run assets     # (re)génère build/icon.png et build/tray.png
 - [x] **Phase 3** — Pont IPC (`window.app.lcu`) : liste blanche d'endpoints (`read` = GET only), relais d'événements filtré, mutations sur canaux dédiés
 - [x] **Phase 4** — Connexion & Statut joueur : vue Accueil (icône, niveau/XP, rang solo/flex), `StatusBadge`, systray, option « réduire le client officiel »
 - [x] **Phase 5** — Lobby & Matchmaking : sélecteur de mode, création/départ de lobby, recherche de partie + chrono, modale **Ready Check** (Accepter / Décliner sur clic explicite), suivi `gameflow`
+- [x] **Phase 5.5** — Refonte UI Hextech : tokens issus du vrai client, `Frame`/`Button`/`PlayButton`/équerres d'angle, nav haute + dock social + cadre or, fond splash art dynamique (via LCU), polices libres + slot Beaufort/Spiegel
 - [ ] **Phase 6** — Champ Select
 - [ ] Phases 7 → 9
 

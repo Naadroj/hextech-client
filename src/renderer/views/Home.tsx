@@ -1,5 +1,5 @@
 import type { ConnectionInfo, RankedEntry } from '@shared/lcu-types'
-import { Panel } from '../components/hextech'
+import { Frame, IconFrame } from '../components/hextech'
 import { useProfile } from '../lib/useProfile'
 
 function winrate(entry: RankedEntry): number {
@@ -13,18 +13,26 @@ function formatRank(entry: RankedEntry | null): string {
   return `${tier} ${entry.division} · ${entry.leaguePoints} LP`
 }
 
-function RankRow({ label, entry }: { label: string; entry: RankedEntry | null }) {
+function RankTile({ label, entry }: { label: string; entry: RankedEntry | null }) {
   return (
-    <div className="flex items-baseline justify-between border-b border-gold-800/50 py-2 last:border-0">
-      <span className="font-display text-xs uppercase tracking-widest text-gold-600">{label}</span>
-      <span className="text-right">
-        <span className="text-gold-100">{formatRank(entry)}</span>
-        {entry && (
-          <span className="ml-3 text-xs text-gold-600">
-            {entry.wins}V / {entry.losses}D · {winrate(entry)}%
-          </span>
-        )}
+    <div className="flex items-center gap-4 border border-gold-800 bg-hextech-black/40 p-4">
+      <span
+        aria-hidden="true"
+        className="grid h-12 w-12 shrink-0 rotate-45 place-items-center border border-gold-600 bg-gun-grad"
+      >
+        <span className="-rotate-45 font-display text-lg text-gold-300">
+          {entry ? entry.tier.charAt(0) : '–'}
+        </span>
       </span>
+      <div className="min-w-0">
+        <div className="font-display text-xs uppercase tracking-hexwide text-gold-700">{label}</div>
+        <div className="text-gold-100">{formatRank(entry)}</div>
+        {entry && (
+          <div className="text-xs text-parchment">
+            {entry.wins}V / {entry.losses}D · {winrate(entry)}%
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -32,52 +40,47 @@ function RankRow({ label, entry }: { label: string; entry: RankedEntry | null })
 export function Home({ connection }: { connection: ConnectionInfo }) {
   const connected = connection.status === 'connected'
   const summoner = connection.summoner
-  const { ranked, iconDataUrl, loading } = useProfile(connected, summoner)
+  const { ranked, iconDataUrl } = useProfile(connected, summoner)
 
   if (!connected || !summoner) {
     return (
-      <Panel title="Accueil">
-        <p className="text-gold-600">
+      <Frame title="Accueil" className="mx-auto max-w-2xl">
+        <p className="text-parchment">
           {connection.status === 'connecting'
             ? 'Connexion au client League of Legends…'
             : 'En attente du client League of Legends. Lance le client officiel pour continuer.'}
         </p>
-      </Panel>
+      </Frame>
     )
   }
 
   const xpPct = Math.max(0, Math.min(100, Math.round(summoner.percentCompleteForNextLevel)))
 
   return (
-    <div className="space-y-6">
-      <Panel>
-        <div className="flex items-center gap-5">
-          <div className="relative h-24 w-24 shrink-0 border-2 border-gold-300 bg-hextech-bg">
-            {iconDataUrl && (
-              <img
-                src={iconDataUrl}
-                alt="Icône d'invocateur"
-                className="h-full w-full object-cover"
-              />
-            )}
-            <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-hextech-black px-2 font-display text-sm text-gold-300">
-              {summoner.summonerLevel}
-            </span>
-          </div>
-
+    <div className="mx-auto max-w-3xl space-y-6">
+      <Frame>
+        <div className="flex items-center gap-6">
+          <IconFrame
+            src={iconDataUrl}
+            alt="Icône d'invocateur"
+            size={104}
+            level={summoner.summonerLevel}
+          />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-2xl">
+            <h1 className="truncate text-3xl">
               {summoner.gameName || summoner.displayName}
               {summoner.tagLine && (
-                <span className="ml-1 text-base text-gold-600">#{summoner.tagLine}</span>
+                <span className="ml-2 align-middle text-lg text-parchment">
+                  #{summoner.tagLine}
+                </span>
               )}
             </h1>
-            <div className="mt-3">
-              <div className="mb-1 flex justify-between text-[11px] uppercase tracking-widest text-gold-600">
+            <div className="mt-4">
+              <div className="mb-1 flex justify-between font-display text-[10px] uppercase tracking-hexwide text-gold-700">
                 <span>Niveau {summoner.summonerLevel}</span>
                 <span>{xpPct}%</span>
               </div>
-              <div className="h-2 w-full bg-gold-800/60">
+              <div className="h-2 w-full border border-gold-800 bg-hextech-black/60">
                 <div
                   className="h-full bg-gold-btn"
                   style={{ width: `${xpPct}%` }}
@@ -90,18 +93,14 @@ export function Home({ connection }: { connection: ConnectionInfo }) {
             </div>
           </div>
         </div>
-      </Panel>
+      </Frame>
 
-      <Panel title="Classement">
-        {loading && !ranked.soloDuo && !ranked.flex ? (
-          <p className="text-gold-600">Chargement…</p>
-        ) : (
-          <div>
-            <RankRow label="Solo / Duo" entry={ranked.soloDuo} />
-            <RankRow label="Flexible" entry={ranked.flex} />
-          </div>
-        )}
-      </Panel>
+      <Frame title="Classement">
+        <div className="grid gap-4 md:grid-cols-2">
+          <RankTile label="Solo / Duo" entry={ranked.soloDuo} />
+          <RankTile label="Flexible" entry={ranked.flex} />
+        </div>
+      </Frame>
     </div>
   )
 }

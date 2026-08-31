@@ -14,6 +14,7 @@ import {
   startMatchmaking,
   stopMatchmaking,
   getMatchmakingSearch,
+  getTopMasteryChampionId,
   LcuError,
   type HttpLike,
 } from './endpoints'
@@ -210,6 +211,24 @@ describe('lobby & matchmaking', () => {
     expect(await getMatchmakingSearch(http(vi.fn(async () => fail(404))))).toBeNull()
     const get = vi.fn(async () => ok({ searchState: 'Searching', timeInQueue: 12 }))
     expect((await getMatchmakingSearch(http(get)))?.searchState).toBe('Searching')
+  })
+})
+
+describe('getTopMasteryChampionId', () => {
+  it('retourne le championId avec le plus de points', async () => {
+    const get = vi.fn(async () =>
+      ok([
+        { championId: 1, championPoints: 5000 },
+        { championId: 103, championPoints: 91000 },
+        { championId: 64, championPoints: 42000 },
+      ]),
+    )
+    expect(await getTopMasteryChampionId(http(get))).toBe(103)
+  })
+
+  it('retourne null si vide ou en erreur', async () => {
+    expect(await getTopMasteryChampionId(http(vi.fn(async () => ok([]))))).toBeNull()
+    expect(await getTopMasteryChampionId(http(vi.fn(async () => fail(500))))).toBeNull()
   })
 })
 

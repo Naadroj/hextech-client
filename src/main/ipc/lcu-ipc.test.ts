@@ -149,6 +149,26 @@ describe('registerLcuIpc — handlers', () => {
     expect(res.flex).toBeNull()
   })
 
+  it('lcu:get-splash : mastery -> splash servi localement en data URL', async () => {
+    expect(await ctx.ipcMain.invoke(IpcChannels.lcuGetSplash)).toBeNull()
+
+    ctx.conn.rest = makeRest({
+      get: vi.fn(async () => ({
+        status: 200,
+        ok: true,
+        data: [{ championId: 103, championPoints: 99999 }],
+      })),
+      requestRaw: vi.fn(async (_m: string, path: string) => ({
+        status: 200,
+        ok: true,
+        contentType: 'image/jpeg',
+        body: Buffer.from(path.includes('/103/103000.jpg') ? [9, 9, 9] : []),
+      })),
+    })
+    const url = await ctx.ipcMain.invoke(IpcChannels.lcuGetSplash)
+    expect(url).toBe('data:image/jpeg;base64,' + Buffer.from([9, 9, 9]).toString('base64'))
+  })
+
   it('lcu:get-profile-icon renvoie une data URL, ou null si invalide', async () => {
     ctx.conn.rest = makeRest()
     expect(await ctx.ipcMain.invoke(IpcChannels.lcuGetProfileIcon, 3)).toBe(

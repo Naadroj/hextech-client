@@ -1,8 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap');
+@import './fonts.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --hx-gold-edge: linear-gradient(to top, #785b28 0%, #c89c3c 55%, #c8a355 71%, #c8aa6e 100%);
+  --hx-gold-edge-bright: linear-gradient(to top, #a1802f 0%, #e3c96b 50%, #f0e6d2 100%);
+  --hx-cyan-edge: linear-gradient(to top, #005a82 0%, #0397ab 50%, #0ac8b9 100%);
+}
 
 @layer base {
   html,
@@ -13,49 +19,198 @@
   body {
     margin: 0;
     overflow: hidden;
-    @apply bg-hextech-black font-body text-gold-100 antialiased;
-    background-image: radial-gradient(ellipse at top, #0a1a2f 0%, #010a13 70%);
+    background: #010a13;
+    @apply font-body text-gold-100 antialiased;
   }
   h1,
   h2,
   h3 {
     margin: 0;
-    @apply font-display uppercase tracking-wide text-gold-300;
-    text-shadow: 0 1px 2px #000;
+    @apply font-display uppercase tracking-hex text-gold-100;
+    text-shadow: 0 2px 3px #000;
   }
   ::-webkit-scrollbar {
-    width: 10px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: #010a13;
   }
   ::-webkit-scrollbar-thumb {
-    background: #785a28;
-    border: 1px solid #c8aa6e;
+    background: linear-gradient(180deg, #785b28, #463714);
+    border: 1px solid #785b28;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #c8a355, #785b28);
   }
 }
 
 @layer components {
-  /* ─── Barre de titre (fenêtre frameless) ─── */
+  /* ─────────────────────────── Fond Magic-Tech ─────────────────────────── */
+  .hx-bg {
+    @apply pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-hextech-black;
+  }
+  .hx-bg__splash {
+    @apply absolute inset-0 bg-cover bg-center;
+    animation: splashIn 1.1s ease-out;
+    filter: saturate(1.05) brightness(0.9);
+    -webkit-mask-image: linear-gradient(to top, transparent 0%, #000 55%, #000 100%);
+  }
+  .hx-bg__scrim {
+    @apply absolute inset-0;
+    background:
+      linear-gradient(
+        to top,
+        #010a13 0%,
+        rgba(1, 10, 19, 0.92) 26%,
+        rgba(1, 10, 19, 0.62) 62%,
+        rgba(1, 10, 19, 0.78) 100%
+      ),
+      radial-gradient(ellipse at 50% -12%, rgba(10, 50, 70, 0.55) 0%, rgba(1, 10, 19, 0) 60%);
+  }
+  .hx-bg__grid {
+    @apply absolute inset-0;
+    background-image:
+      linear-gradient(rgba(200, 170, 110, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200, 170, 110, 0.05) 1px, transparent 1px),
+      radial-gradient(rgba(10, 200, 230, 0.06) 1.5px, transparent 1.5px);
+    background-size:
+      48px 48px,
+      48px 48px,
+      48px 48px;
+    -webkit-mask-image: radial-gradient(ellipse at 50% 40%, #000 0%, rgba(0, 0, 0, 0.35) 100%);
+  }
+  .hx-bg__glow {
+    @apply absolute inset-x-0 top-0 h-1/2;
+    background: radial-gradient(
+      ellipse at 50% 0%,
+      rgba(200, 155, 60, 0.1) 0%,
+      rgba(10, 50, 70, 0.12) 30%,
+      transparent 62%
+    );
+  }
+
+  /* ─────────────────────────── Cadre applicatif ───────────────────────── */
+  .hx-app-frame {
+    @apply relative flex h-full flex-col;
+    border: 1px solid #785b28;
+    box-shadow:
+      inset 0 0 0 1px rgba(1, 10, 19, 0.7),
+      inset 0 0 42px rgba(0, 0, 0, 0.6);
+  }
+  .hx-corner {
+    @apply pointer-events-none absolute z-30 h-5 w-5;
+    filter: drop-shadow(0 0 3px rgba(200, 155, 60, 0.6));
+  }
+  .hx-corner--tl {
+    @apply left-0 top-0;
+  }
+  .hx-corner--tr {
+    @apply right-0 top-0 rotate-90;
+  }
+  .hx-corner--br {
+    @apply bottom-0 right-0 rotate-180;
+  }
+  .hx-corner--bl {
+    @apply bottom-0 left-0 -rotate-90;
+  }
+
+  /* ─────────────────────────── Barre de titre ─────────────────────────── */
   .hx-titlebar {
     -webkit-app-region: drag;
-    @apply flex h-9 shrink-0 items-center justify-between border-b border-gold-600 bg-hextech-black px-4;
+    @apply relative flex h-8 shrink-0 items-center justify-between px-3;
+    background: linear-gradient(180deg, #0a1420 0%, #050c15 100%);
+    border-bottom: 1px solid #463714;
   }
   .hx-titlebar__brand {
-    @apply font-display text-xs uppercase tracking-[0.3em] text-gold-300;
+    @apply flex items-center gap-2 font-display text-[11px] uppercase tracking-hexwide text-gold-200;
   }
   .hx-titlebar__actions {
     -webkit-app-region: no-drag;
-    @apply flex items-center gap-1;
+    @apply flex items-center;
   }
   .hx-titlebar__actions button {
-    @apply grid h-6 w-8 place-items-center text-gold-600 transition-colors hover:text-gold-100;
+    @apply grid h-7 w-9 place-items-center text-[13px] text-gold-600 transition-colors hover:text-gold-100;
   }
   .hx-titlebar__actions button.is-close:hover {
-    @apply text-danger;
+    @apply text-decline;
   }
 
-  /* ─── Séparateur doré (barre + losange) ─── */
+  /* ─────────────────────────── Navigation haute ──────────────────────── */
+  .hx-topnav {
+    @apply relative flex shrink-0 items-stretch gap-1 px-6 pt-3;
+    background: linear-gradient(180deg, rgba(1, 10, 19, 0.85) 0%, rgba(1, 10, 19, 0.35) 100%);
+  }
+  .hx-topnav::after {
+    content: '';
+    @apply absolute inset-x-0 bottom-0 h-px bg-gold-bar;
+  }
+  .hx-topnav__tab {
+    @apply relative cursor-pointer px-4 pb-3 font-display text-sm uppercase tracking-hex text-gold-700 transition-colors;
+  }
+  .hx-topnav__tab:hover {
+    @apply text-gold-200;
+  }
+  .hx-topnav__tab[data-active='true'] {
+    @apply text-gold-100;
+    text-shadow: 0 0 10px rgba(200, 155, 60, 0.5);
+  }
+  .hx-topnav__tab[data-active='true']::after {
+    content: '';
+    @apply absolute inset-x-1 -bottom-px h-0.5 bg-gold-btn;
+    box-shadow: 0 0 8px rgba(200, 155, 60, 0.8);
+  }
+  .hx-topnav__tab[data-active='true']::before {
+    content: '';
+    @apply absolute -bottom-[6px] left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-gold-400;
+    box-shadow: 0 0 6px #c89b3c;
+  }
+
+  /* ─────────────────────────── Panneau / Cadre ───────────────────────── */
+  .hx-panel {
+    @apply relative bg-gun-grad p-5 text-gold-100;
+    border: 1px solid #5b5a56;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+  }
+  .hx-panel::before {
+    content: '';
+    @apply pointer-events-none absolute inset-0;
+    border: 1px solid rgba(200, 170, 110, 0.12);
+  }
+
+  .hx-frame {
+    @apply relative bg-panel-grad p-6 text-gold-100;
+    border: 2px solid transparent;
+    border-image: var(--hx-gold-edge) 1;
+    box-shadow:
+      0 0 0 1px rgba(1, 10, 19, 0.6),
+      0 2px 16px 3px rgba(0, 0, 0, 0.55);
+  }
+  .hx-frame::before {
+    content: '';
+    @apply pointer-events-none absolute inset-[3px];
+    border: 1px solid rgba(200, 170, 110, 0.28);
+  }
+  .hx-frame__bar {
+    @apply absolute inset-x-6 h-px bg-gold-bar;
+  }
+  .hx-frame__bar--top {
+    top: 3px;
+  }
+  .hx-frame__bar--bottom {
+    bottom: 3px;
+  }
+
+  /* ─────────────────────────── En-tête de section ────────────────────── */
+  .hx-section-header {
+    @apply mb-4 flex items-end justify-between border-b border-gold-800 pb-2;
+  }
+  .hx-section-header h2,
+  .hx-section-header h1 {
+    @apply text-lg;
+  }
+
+  /* ─────────────────────────── Séparateur ────────────────────────────── */
   .hx-divider {
     @apply relative my-4 h-px bg-gold-bar;
   }
@@ -65,87 +220,210 @@
     box-shadow: 0 0 6px #c89b3c;
   }
 
-  /* ─── Panneau / carte à coins biseautés ─── */
-  .hx-panel {
-    @apply relative bg-panel-grad p-5 text-gold-100 shadow-inset-dark;
-    border: 1px solid #785a28;
-    clip-path: polygon(
-      10px 0,
-      100% 0,
-      100% calc(100% - 10px),
-      calc(100% - 10px) 100%,
-      0 100%,
-      0 10px
-    );
-  }
-  .hx-panel::before {
-    content: '';
-    @apply pointer-events-none absolute inset-[3px];
-    border: 1px solid rgba(200, 170, 110, 0.35);
-    clip-path: inherit;
-  }
-
-  /* ─── Bouton métallique biseauté ─── */
+  /* ─────────────────────────── Boutons ───────────────────────────────── */
   .hx-btn {
-    @apply relative border border-gold-300 px-6 py-2 font-display text-sm uppercase tracking-wider text-gold-100 outline-none transition-all duration-150;
-    clip-path: polygon(
-      6px 0,
-      100% 0,
-      100% calc(100% - 6px),
-      calc(100% - 6px) 100%,
-      0 100%,
-      0 6px
+    @apply relative inline-flex items-center justify-center gap-2 overflow-hidden bg-hextech-gun px-6 py-2 font-display text-sm uppercase tracking-hex text-gold-100 outline-none transition-[box-shadow,color,background] duration-150;
+    border: 2px solid transparent;
+    border-image: var(--hx-gold-edge) 1;
+  }
+  .hx-btn__sheen {
+    @apply pointer-events-none absolute inset-0 -z-0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(240, 230, 210, 0.35) 50%,
+      transparent 100%
     );
+    opacity: 0;
+  }
+  .hx-btn > span:not(.hx-btn__sheen) {
+    @apply relative z-10;
   }
   .hx-btn:hover:not(:disabled) {
-    @apply bg-gold-btn text-hextech-black shadow-glow-gold;
+    @apply text-gold-50 shadow-btn-hover;
+    border-image: var(--hx-gold-edge-bright) 1;
+  }
+  .hx-btn:hover:not(:disabled) .hx-btn__sheen {
+    animation: sheen 0.7s ease-out;
   }
   .hx-btn:active:not(:disabled) {
-    transform: translateY(1px);
+    animation: clickpop 0.18s ease-out;
   }
   .hx-btn:focus-visible {
     @apply shadow-glow-cyan;
   }
   .hx-btn:disabled {
-    @apply cursor-not-allowed border-gold-800 opacity-40;
+    @apply cursor-not-allowed text-disabled;
+    background: #1f242a;
+    border-image: linear-gradient(to top, #33363b, #4c5155) 1;
+  }
+  .hx-btn--sm {
+    @apply px-4 py-1 text-xs;
+  }
+  .hx-btn--lg {
+    @apply px-9 py-3 text-base tracking-hexwide;
+  }
+  .hx-btn--gold:hover:not(:disabled) {
+    background-image: var(--hx-gold-edge);
+    @apply text-hextech-black;
   }
   .hx-btn--primary {
-    @apply border-rune-cyan text-rune-cyan;
+    border-image: var(--hx-cyan-edge) 1;
+    @apply text-rune-text;
   }
   .hx-btn--primary:hover:not(:disabled) {
-    @apply bg-rune-cyan text-hextech-black shadow-glow-cyan;
+    border-image: linear-gradient(to top, #0397ab, #0ac8b9, #cdfafa) 1;
+    background-image: linear-gradient(180deg, #0ac8b9, #01698b);
+    @apply text-hextech-black shadow-glow-cyan;
   }
+  .hx-btn--ghost {
+    background: transparent;
+  }
+  .hx-btn--decline,
+  .hx-btn--ban {
+    border-image: linear-gradient(to top, #7a2420, #c6403b) 1;
+    @apply text-decline;
+  }
+  .hx-btn--decline:hover:not(:disabled),
+  .hx-btn--ban:hover:not(:disabled) {
+    background-image: linear-gradient(180deg, #c6403b, #7a2420);
+    @apply text-gold-50;
+    box-shadow: 0 0 10px rgba(198, 64, 59, 0.5);
+  }
+  /* Accent d'acceptation : cyan clignotant (ready-check). */
   .hx-btn--accept {
-    @apply animate-ready-flash border-rune-cyan text-rune-cyan;
+    border-image: var(--hx-cyan-edge) 1;
+    @apply animate-ready-flash text-rune-text;
   }
   .hx-btn--accept:hover:not(:disabled) {
-    @apply bg-rune-cyan text-hextech-black shadow-glow-cyan;
-  }
-  .hx-btn--ban {
-    @apply border-danger text-danger;
-  }
-  .hx-btn--ban:hover:not(:disabled) {
-    @apply bg-danger text-hextech-black;
-    box-shadow: none;
+    border-image: linear-gradient(to top, #0397ab, #0ac8b9, #cdfafa) 1;
+    background-image: linear-gradient(180deg, #0ac8b9, #01698b);
+    @apply text-hextech-black;
   }
 
-  /* ─── Rail de navigation ─── */
-  .hx-nav {
-    @apply flex w-52 shrink-0 flex-col gap-1 border-r border-gold-600 py-4;
-    background-color: rgba(9, 20, 40, 0.4);
+  /* ─────────────────────────── Bouton PLAY (XL) ──────────────────────── */
+  .hx-play {
+    @apply relative grid h-16 min-w-[260px] place-items-center overflow-hidden font-display text-xl uppercase tracking-hexwide text-hextech-black;
+    background-image: var(--hx-gold-edge);
+    border: 2px solid #f0e6d2;
+    clip-path: polygon(14px 0, 100% 0, calc(100% - 14px) 100%, 0 100%);
+    box-shadow:
+      0 0 18px rgba(200, 155, 60, 0.45),
+      inset 0 0 12px rgba(255, 255, 255, 0.25);
   }
-  .hx-nav-item {
-    @apply flex cursor-pointer items-center gap-3 border-l-2 border-transparent px-4 py-3 text-left font-display text-xs uppercase tracking-widest text-gold-600 transition-colors;
+  .hx-play:hover:not(:disabled) {
+    filter: brightness(1.08);
+    box-shadow:
+      0 0 28px rgba(200, 155, 60, 0.7),
+      inset 0 0 16px rgba(255, 255, 255, 0.35);
   }
-  .hx-nav-item:hover {
-    @apply text-gold-300;
+  .hx-play:disabled {
+    filter: grayscale(0.7) brightness(0.6);
+    cursor: not-allowed;
   }
-  .hx-nav-item[data-active='true'] {
-    @apply border-gold-300 bg-white/5 text-gold-100;
+  .hx-play__sheen {
+    @apply pointer-events-none absolute inset-0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.55) 50%,
+      transparent 100%
+    );
+    opacity: 0;
+  }
+  .hx-play:hover:not(:disabled) .hx-play__sheen {
+    animation: sheen 0.8s ease-out;
+  }
+  .hx-play--cancel {
+    background-image: linear-gradient(180deg, #3a4048, #23272d);
+    border-color: #c6403b;
+    @apply text-gold-50;
   }
 
-  /* ─── Modale ─── */
+  /* ─────────────────────────── Cartes de mode ───────────────────────── */
+  .hx-mode-card {
+    @apply relative flex flex-col gap-1 bg-gun-grad p-4 text-left transition-all duration-150;
+    border: 1px solid #5b5a56;
+  }
+  .hx-mode-card:hover:not(:disabled) {
+    border-color: #c8aa6e;
+    box-shadow: 0 0 12px rgba(200, 155, 60, 0.3);
+    transform: translateY(-1px);
+  }
+  .hx-mode-card:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+  .hx-mode-card[data-active='true'] {
+    border-color: #c8aa6e;
+    box-shadow: inset 0 0 0 1px rgba(200, 170, 110, 0.5);
+  }
+
+  /* ─────────────────────────── Avatar / niveau ──────────────────────── */
+  .hx-icon-frame {
+    @apply relative shrink-0 rounded-full bg-hextech-bg;
+    border: 2px solid #c8aa6e;
+    box-shadow:
+      0 0 0 3px #010a13,
+      0 0 0 4px #785b28,
+      0 0 12px rgba(200, 155, 60, 0.35);
+  }
+  .hx-icon-frame img {
+    @apply h-full w-full rounded-full object-cover;
+  }
+  .hx-level-banner {
+    @apply absolute -bottom-3 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-0.5 font-display text-xs text-gold-100;
+    background: linear-gradient(180deg, #1e2328, #05080c);
+    border: 1px solid #785b28;
+    clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 100%, 0 100%);
+  }
+
+  /* ─────────────────────────── Étiquette ────────────────────────────── */
+  .hx-tag {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 font-display text-[10px] uppercase tracking-hexwide;
+    border: 1px solid #785b28;
+    color: #cdbe91;
+  }
+  .hx-tag--cyan {
+    border-color: #0397ab;
+    color: #cdfafa;
+  }
+
+  /* ─────────────────────────── Dock social ──────────────────────────── */
+  .hx-social {
+    @apply relative flex h-full shrink-0 flex-col;
+    border-left: 1px solid #463714;
+    background: linear-gradient(180deg, rgba(10, 20, 32, 0.92), rgba(1, 10, 19, 0.92));
+    transition: width 0.18s ease;
+  }
+  .hx-social__toggle {
+    @apply flex h-8 w-full items-center justify-end border-b border-gold-800 pr-3 text-[11px] text-gold-700 transition-colors hover:text-gold-100;
+  }
+  .hx-social__group {
+    @apply px-3 pt-3 font-display text-[10px] uppercase tracking-hexwide text-gold-700;
+  }
+  .hx-social__friend {
+    @apply flex items-center gap-2 px-3 py-1.5 text-sm text-parchment;
+  }
+  .hx-social__friend .dot {
+    @apply h-2 w-2 shrink-0 rounded-full;
+  }
+
+  /* ─────────────────────────── Modale ──────────────────────────────── */
   .hx-modal-backdrop {
-    @apply fixed inset-0 z-50 grid place-items-center bg-black/70 p-6 backdrop-blur-sm;
+    @apply fixed inset-0 z-50 grid place-items-center bg-black/75 p-6 backdrop-blur-sm;
+  }
+  .hx-modal {
+    @apply relative w-full max-w-lg bg-panel-grad p-7 text-gold-100;
+    border: 2px solid transparent;
+    border-image: var(--hx-gold-edge) 1;
+    box-shadow:
+      0 0 0 1px rgba(1, 10, 19, 0.7),
+      0 8px 40px 6px rgba(0, 0, 0, 0.7);
+    animation: splashIn 0.22s ease-out;
+  }
+  .hx-modal::before {
+    content: '';
+    @apply pointer-events-none absolute inset-[3px];
+    border: 1px solid rgba(200, 170, 110, 0.3);
   }
 }

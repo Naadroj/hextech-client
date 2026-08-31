@@ -16,6 +16,7 @@ export function stubLcuBridge(overrides: Partial<LcuBridge> = {}) {
     getConnection: vi.fn(async () => ({ status: 'idle', summoner: null }) as ConnectionInfo),
     getRankedStats: vi.fn(async () => ({ soloDuo: null, flex: null })),
     getProfileIcon: vi.fn(async () => null),
+    getSplashBackground: vi.fn(async () => null),
     acceptReadyCheck: vi.fn(async () => {}),
     declineReadyCheck: vi.fn(async () => {}),
     createLobby: vi.fn(async () => {}),

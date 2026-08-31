@@ -30,6 +30,8 @@ export interface LcuBridge {
   getRankedStats: () => Promise<RankedStats>
   /** Icône d'invocateur servie localement par le client, en `data:` URL. */
   getProfileIcon: (iconId: number) => Promise<string | null>
+  /** Splash art (data: URL) du champion le plus maîtrisé, pour le fond. */
+  getSplashBackground: () => Promise<string | null>
   acceptReadyCheck: () => Promise<void>
   declineReadyCheck: () => Promise<void>
   createLobby: (queueId: number) => Promise<void>
@@ -58,6 +60,7 @@ export const IpcChannels = {
   lcuGetConnection: 'lcu:get-connection',
   lcuGetRankedStats: 'lcu:get-ranked-stats',
   lcuGetProfileIcon: 'lcu:get-profile-icon',
+  lcuGetSplash: 'lcu:get-splash',
   lcuAcceptReadyCheck: 'lcu:accept-ready-check',
   lcuDeclineReadyCheck: 'lcu:decline-ready-check',
   lcuCreateLobby: 'lcu:create-lobby',

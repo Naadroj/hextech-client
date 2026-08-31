@@ -6,6 +6,7 @@ import {
   createLobby,
   declineReadyCheck,
   getCurrentRankedStats,
+  getTopMasteryChampionId,
   leaveLobby,
   startMatchmaking,
   stopMatchmaking,
@@ -32,6 +33,7 @@ const READ_WHITELIST: RegExp[] = [
   /^\/lol-loot\/v\d+\//,
   /^\/lol-perks\/v\d+\//,
   /^\/lol-game-queues\/v\d+\//,
+  /^\/lol-champion-mastery\/v\d+\//,
   /^\/lol-game-data\//,
 ]
 
@@ -77,6 +79,7 @@ const HANDLED_CHANNELS: string[] = [
   IpcChannels.lcuGetConnection,
   IpcChannels.lcuGetRankedStats,
   IpcChannels.lcuGetProfileIcon,
+  IpcChannels.lcuGetSplash,
   IpcChannels.lcuAcceptReadyCheck,
   IpcChannels.lcuDeclineReadyCheck,
   IpcChannels.lcuCreateLobby,
@@ -135,6 +138,31 @@ export function registerLcuIpc(deps: RegisterLcuIpcDeps): () => void {
       return `data:${mime};base64,${res.body.toString('base64')}`
     } catch (err) {
       logger.warn('lcu:get-profile-icon a échoué', String(err))
+      return null
+    }
+  })
+
+  ipcMain.handle(IpcChannels.lcuGetSplash, async () => {
+    const rest = connection.restClient
+    if (!rest) return null
+    try {
+      const championId = await getTopMasteryChampionId(rest)
+      if (!championId) return null
+      const skinId = `${championId}000`
+      const paths = [
+        `/lol-game-data/assets/v1/champion-splashes/${championId}/${skinId}.jpg`,
+        `/lol-game-data/assets/v1/champion-splashes/uncentered/${championId}/${skinId}.jpg`,
+      ]
+      for (const path of paths) {
+        const res = await rest.requestRaw('GET', path)
+        if (res.ok && res.body.byteLength > 0) {
+          const mime = res.contentType || 'image/jpeg'
+          return `data:${mime};base64,${res.body.toString('base64')}`
+        }
+      }
+      return null
+    } catch (err) {
+      logger.warn('lcu:get-splash a échoué', String(err))
       return null
     }
   })

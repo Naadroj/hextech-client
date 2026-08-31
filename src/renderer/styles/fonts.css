@@ -1,0 +1,42 @@
+/* Substituts libres — chargés depuis Google Fonts. */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap');
+
+/*
+ * Polices officielles Riot (propriétaires, NON fournies).
+ * Dépose les fichiers dans `src/renderer/public/fonts/` pour les activer —
+ * elles priment alors sur Cinzel / Barlow via la cascade `--font-display` /
+ * `--font-body`. Si les fichiers sont absents, ces @font-face échouent
+ * silencieusement et la substitution libre s'applique.
+ */
+@font-face {
+  font-family: 'Beaufort for LOL';
+  src:
+    local('Beaufort for LOL Bold'),
+    url('/fonts/BeaufortforLOL-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Beaufort for LOL';
+  src:
+    local('Beaufort for LOL Heavy'),
+    url('/fonts/BeaufortforLOL-Heavy.woff2') format('woff2');
+  font-weight: 800;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Spiegel';
+  src:
+    local('Spiegel'),
+    url('/fonts/Spiegel-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Spiegel';
+  src:
+    local('Spiegel SemiBold'),
+    url('/fonts/Spiegel-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+}

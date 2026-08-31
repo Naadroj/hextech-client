@@ -20,6 +20,7 @@ const api: AppApi = {
     getRankedStats: () => ipcRenderer.invoke(IpcChannels.lcuGetRankedStats),
     getProfileIcon: (iconId: number) =>
       ipcRenderer.invoke(IpcChannels.lcuGetProfileIcon, iconId),
+    getSplashBackground: () => ipcRenderer.invoke(IpcChannels.lcuGetSplash),
     acceptReadyCheck: () => ipcRenderer.invoke(IpcChannels.lcuAcceptReadyCheck),
     declineReadyCheck: () => ipcRenderer.invoke(IpcChannels.lcuDeclineReadyCheck),
     createLobby: (queueId: number) => ipcRenderer.invoke(IpcChannels.lcuCreateLobby, queueId),
