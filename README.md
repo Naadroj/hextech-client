@@ -26,18 +26,21 @@ npm run build      # build de production dans out/
 
 | Chemin | Rôle |
 | --- | --- |
-| `src/main/` | Process principal Electron (fenêtre, IPC, futur cœur LCU) |
+| `src/main/` | Process principal Electron (fenêtre, IPC) |
+| `src/main/lcu/` | Cœur LCU : lockfile, credentials, REST, WebSocket, orchestrateur |
 | `src/preload/` | Pont `contextBridge` sécurisé vers le renderer |
 | `src/renderer/` | UI React (composants Hextech, vues) |
 | `src/shared/` | Types et utilitaires partagés main ↔ renderer |
-| `test/` | Setup Vitest |
+| `resources/` | Fichiers embarqués au runtime (`riotgames.pem`, SFX) |
+| `test/` | Setup Vitest + fixtures (cert auto-signé pour les tests HTTPS) |
 
 ## Avancement (voir le plan de phases)
 
 - [x] **Phase 0** — Fondations & outillage
 - [x] **Phase 1** — Design System Hextech (Button, Panel, Modal, Divider, NavRail, TitleBar, Kitchen Sink)
-- [ ] **Phase 2** — Cœur LCU (lockfile, credentials, REST, WebSocket)
-- [ ] Phases 3 → 9
+- [x] **Phase 2** — Cœur LCU (lockfile, credentials, REST `node:https`, WebSocket WAMP, orchestrateur) — non encore relié au process principal
+- [ ] **Phase 3** — Pont IPC & bridge renderer
+- [ ] Phases 4 → 9
 
 ## Note OneDrive
 

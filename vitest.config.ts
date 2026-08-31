@@ -12,6 +12,8 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Le code du process principal (LCU, sockets) tourne sous Node, pas jsdom.
+    environmentMatchGlobs: [['src/main/**', 'node']],
     globals: true,
     setupFiles: ['./test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
