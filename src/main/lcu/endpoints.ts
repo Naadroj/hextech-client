@@ -215,19 +215,16 @@ async function createCustomWithRetry(
 ): Promise<Lobby> {
   const swallow = (p: unknown) => Promise.resolve(p).then(undefined, () => undefined)
 
+  // Quitte tout lobby existant + "réveille" le sous-système parties custom.
   await swallow(http.delete('/lol-lobby/v2/lobby'))
   await swallow(http.get('/lol-lobby/v2/lobby/custom/available-bots'))
   await sleep(150)
 
   let res = await http.post<Lobby>('/lol-lobby/v2/lobby', body)
-
   if (!res.ok) {
-    await swallow(http.post('/lol-lobby/v2/lobby', { queueId: 430 }))
-    await swallow(http.delete('/lol-lobby/v2/lobby'))
-    await sleep(300)
+    await sleep(400)
     res = await http.post<Lobby>('/lol-lobby/v2/lobby', body)
   }
-
   if (!res.ok) throw new LcuError(`/lol-lobby/v2/lobby (${label})`, res.status, res.data)
   return res.data
 }
