@@ -34,4 +34,11 @@ describe('App', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Boutique' }))
     expect(screen.getByText(/à implémenter dans une phase ultérieure/i)).toBeInTheDocument()
   })
+
+  it('bascule vers la vue Réglages (mise à jour)', async () => {
+    render(<App />)
+    await userEvent.click(screen.getByRole('button', { name: 'Réglages' }))
+    expect(screen.getByRole('heading', { name: 'Réglages' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Mise à jour' })).toBeInTheDocument()
+  })
 })

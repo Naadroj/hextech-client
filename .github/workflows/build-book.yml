@@ -1,0 +1,87 @@
+# Régénère le squelette de build (phase A4.3) et le publie en asset de Release.
+# Le client télécharge ce fichier au démarrage — voir src/main/engine/build-book.ts.
+#
+# Prérequis :
+#   - Secret de dépôt `RIOT_API_KEY` = une *Personal API Key* Riot (ne pas
+#     utiliser une clé de dev, elle expire en 24 h et le job casserait).
+#   - Ce dépôt doit être celui référencé par BUILD_BOOK_URL (build-book.ts) et
+#     `publish:` (electron-builder.yml).
+name: build-book
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # lundi 06:00 UTC — le méta est stable sur un patch
+  workflow_dispatch:
+    inputs:
+      players:
+        description: 'Joueurs Challenger par région'
+        default: '30'
+      perPlayer:
+        description: 'Parties par joueur'
+        default: '6'
+
+permissions:
+  contents: write # créer / mettre à jour la Release
+
+concurrency:
+  group: build-book
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      PLAYERS: ${{ github.event.inputs.players || '30' }}
+      PER_PLAYER: ${{ github.event.inputs.perPlayer || '6' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Cale le snapshot (donc les ids d'items) sur le dernier patch publié.
+      - name: Rafraîchir le catalogue statique
+        run: npm run staticdata
+
+      - name: Moissonner EUW
+        env:
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          RIOT_PLATFORM: euw1
+          RIOT_REGION: europe
+        run: npm run harvest -- "$PLAYERS" "$PER_PLAYER"
+
+      - name: Moissonner KR
+        env:
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          RIOT_PLATFORM: kr
+          RIOT_REGION: asia
+        run: npm run harvest -- "$PLAYERS" "$PER_PLAYER"
+
+      - name: Moissonner NA
+        env:
+          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
+          RIOT_PLATFORM: na1
+          RIOT_REGION: americas
+        run: npm run harvest -- "$PLAYERS" "$PER_PLAYER"
+
+      - name: Agréger le squelette
+        run: npm run builds
+
+      - name: Publier (asset stable `builds-latest`)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view builds-latest >/dev/null 2>&1 \
+            || gh release create builds-latest \
+                 --title "Squelette de build (dernier patch)" \
+                 --notes "Régénéré automatiquement par le workflow build-book."
+          gh release upload builds-latest resources/builds.json --clobber
+
+      - name: Résumé
+        run: |
+          node -e "const b=require('./resources/builds.json');console.log('patch',b.patch,'· couples',b.builds.reduce((s,c)=>s+c.roles.length,0),'· parties',b.sampleGames)" >> "$GITHUB_STEP_SUMMARY"

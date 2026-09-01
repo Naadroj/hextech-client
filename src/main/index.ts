@@ -7,6 +7,15 @@ import { createTray } from './tray'
 import { createLcuConnection } from './lcu'
 import { minimizeLeagueClientWindow } from './lcu/system'
 import { registerLcuIpc } from './ipc/lcu-ipc'
+import { createLiveClient } from './live'
+import { registerLiveIpc } from './ipc/live-ipc'
+import { createStaticData } from './staticdata'
+import { registerStaticDataIpc } from './ipc/staticdata-ipc'
+import { createCoach } from './engine/coach'
+import { resolveBuildBook, refreshBuildBook } from './engine/build-book'
+import { registerCoachIpc } from './ipc/coach-ipc'
+import { Updater } from './updater'
+import { registerUpdateIpc } from './ipc/update-ipc'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 const RESOURCES = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources')
@@ -96,6 +105,10 @@ if (!singleInstance) {
 
     registerWindowControls()
 
+    const updater = new Updater()
+    registerUpdateIpc({ ipcMain, updater, getSender: () => win?.webContents ?? null })
+    updater.on('state', (s) => logger.info('MàJ :', s.phase, s.version ?? ''))
+
     const lcu = createLcuConnection({ caPath: join(RESOURCES, 'riotgames.pem') })
     registerLcuIpc({
       ipcMain,
@@ -110,6 +123,65 @@ if (!singleInstance) {
     lcu.on('disconnected', () => logger.info('LCU déconnectée'))
     lcu.on('error', (err) => logger.warn('LCU:', String(err)))
     lcu.start()
+
+    const live = createLiveClient({ caPath: join(RESOURCES, 'riotgames.pem') })
+    registerLiveIpc({
+      ipcMain,
+      poller: live,
+      getSender: () => win?.webContents ?? null,
+    })
+    live.on('game-start', () => logger.info('Partie détectée (Live Client Data API)'))
+    live.on('game-end', () => logger.info('Partie terminée (Live Client Data API)'))
+    // Hors partie, la Live API refuse la connexion : bruit attendu, on le tait.
+    live.on('poll-error', () => {})
+    live.start()
+
+    createStaticData({
+      bundledSnapshotPath: join(RESOURCES, 'staticdata', 'snapshot.json'),
+      cacheSnapshotPath: join(app.getPath('userData'), 'staticdata', 'snapshot.json'),
+    })
+      .then((staticData) => {
+        registerStaticDataIpc({
+          ipcMain,
+          controller: staticData,
+          getSender: () => win?.webContents ?? null,
+        })
+        const s = staticData.summary()
+        logger.info(`Données statiques : patch ${s.version} (${s.source}), ${s.itemCount} items`)
+
+        // Squelette de build (A4.3) : repli embarqué + cache rafraîchi depuis
+        // une Release GitHub (fichier pré-agrégé par la CI, aucune clé côté client).
+        const patchOf = (v: string): string => v.split('.').slice(0, 2).join('.')
+        const buildsBundled = join(RESOURCES, 'builds.json')
+        const buildsCache = join(app.getPath('userData'), 'builds.json')
+        let buildBook = resolveBuildBook({
+          bundledPath: buildsBundled,
+          cachePath: buildsCache,
+          currentPatch: patchOf(s.version),
+        })
+        const refreshBuilds = (version: string): void => {
+          void refreshBuildBook({ cachePath: buildsCache, currentPatch: patchOf(version) })
+            .then((book) => {
+              if (book) buildBook = book
+            })
+            .catch(() => {})
+        }
+        refreshBuilds(s.version)
+
+        staticData.onUpdated((meta) => {
+          logger.info(`Données statiques rafraîchies : patch ${meta.version}`)
+          refreshBuilds(meta.version)
+        })
+
+        // Moteur de coaching : poller Live + catalogue (+ squelette de build) → recommandation.
+        const coach = createCoach({
+          poller: live,
+          getStaticData: () => staticData.data,
+          getBuildBook: () => buildBook,
+        })
+        registerCoachIpc({ ipcMain, coach, getSender: () => win?.webContents ?? null })
+      })
+      .catch((err) => logger.warn('Données statiques indisponibles :', String(err)))
 
     try {
       tray = createTray({

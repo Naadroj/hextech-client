@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import { IpcChannels, type AppApi } from '../shared/ipc'
 import type { ConnectionInfo, LcuEvent } from '../shared/lcu-types'
+import type { LiveSnapshot, LiveStatus } from '../shared/live-types'
+import type { StaticDataSummary } from '../shared/staticdata-types'
+import type { CoachAdvice } from '../shared/coach-types'
+import type { UpdateState } from '../shared/update-types'
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
   const listener = (_event: IpcRendererEvent, payload: T): void => cb(payload)
@@ -22,6 +26,7 @@ const api: AppApi = {
       ipcRenderer.invoke(IpcChannels.lcuGetProfileIcon, iconId),
     getChampionIcon: (championId: number) =>
       ipcRenderer.invoke(IpcChannels.lcuGetChampionIcon, championId),
+    getItemIcon: (itemId: number) => ipcRenderer.invoke(IpcChannels.lcuGetItemIcon, itemId),
     getSplashBackground: () => ipcRenderer.invoke(IpcChannels.lcuGetSplash),
     acceptReadyCheck: () => ipcRenderer.invoke(IpcChannels.lcuAcceptReadyCheck),
     declineReadyCheck: () => ipcRenderer.invoke(IpcChannels.lcuDeclineReadyCheck),
@@ -42,6 +47,33 @@ const api: AppApi = {
     onConnectionChanged: (cb: (info: ConnectionInfo) => void) =>
       subscribe<ConnectionInfo>(IpcChannels.lcuConnectionChanged, cb),
     onEvent: (cb: (event: LcuEvent) => void) => subscribe<LcuEvent>(IpcChannels.lcuEvent, cb),
+  },
+  live: {
+    getSnapshot: () => ipcRenderer.invoke(IpcChannels.liveGetSnapshot),
+    getStatus: () => ipcRenderer.invoke(IpcChannels.liveGetStatus),
+    onSnapshot: (cb: (snapshot: LiveSnapshot) => void) =>
+      subscribe<LiveSnapshot>(IpcChannels.liveSnapshot, cb),
+    onStatusChanged: (cb: (status: LiveStatus) => void) =>
+      subscribe<LiveStatus>(IpcChannels.liveStatusChanged, cb),
+  },
+  staticData: {
+    getSummary: () => ipcRenderer.invoke(IpcChannels.staticDataGetSummary),
+    refresh: () => ipcRenderer.invoke(IpcChannels.staticDataRefresh),
+    onUpdated: (cb: (summary: StaticDataSummary) => void) =>
+      subscribe<StaticDataSummary>(IpcChannels.staticDataUpdated, cb),
+  },
+  coach: {
+    getAdvice: () => ipcRenderer.invoke(IpcChannels.coachGetAdvice),
+    onAdvice: (cb: (advice: CoachAdvice) => void) =>
+      subscribe<CoachAdvice>(IpcChannels.coachAdvice, cb),
+  },
+  updater: {
+    getInfo: () => ipcRenderer.invoke(IpcChannels.updateGetInfo),
+    check: () => ipcRenderer.invoke(IpcChannels.updateCheck),
+    download: () => ipcRenderer.invoke(IpcChannels.updateDownload),
+    install: () => ipcRenderer.invoke(IpcChannels.updateInstall),
+    onState: (cb: (state: UpdateState) => void) =>
+      subscribe<UpdateState>(IpcChannels.updateState, cb),
   },
 }
 

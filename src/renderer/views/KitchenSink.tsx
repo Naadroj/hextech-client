@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Button, Frame, Panel, Modal, PlayButton, Tag, IconFrame, Divider } from '../components/hextech'
 import { ModeSelect } from '../components/ModeSelect'
 import type { ModeCategory } from '../lib/gameModes'
+import { useLiveGame } from '../lib/useLiveGame'
+import { useStaticData } from '../lib/useStaticData'
 
 const DEMO_CATEGORIES: ModeCategory[] = [
   {
@@ -94,6 +96,10 @@ export function KitchenSink() {
 
       <ModeSelect categories={DEMO_CATEGORIES} onConfirm={() => {}} />
 
+      <StaticDataDebug />
+
+      <LiveGameDebug />
+
       <Frame title="Divers">
         <div className="flex flex-wrap items-center gap-6">
           <IconFrame size={72} level={312} />
@@ -129,6 +135,100 @@ export function KitchenSink() {
         </div>
       </Modal>
     </div>
+  )
+}
+
+/** Carte debug du pipeline de données statiques (Phase A1). */
+function StaticDataDebug() {
+  const { summary, refresh } = useStaticData()
+  const [busy, setBusy] = useState(false)
+
+  return (
+    <Frame title="Données statiques — debug (A1)">
+      {summary ? (
+        <div className="space-y-2 text-sm text-parchment">
+          <div className="flex flex-wrap items-center gap-3">
+            <Tag tone="cyan">Patch {summary.version}</Tag>
+            <Tag>{summary.source === 'cache' ? 'cache userData' : 'embarqué'}</Tag>
+            {summary.updating && <Tag>maj en cours…</Tag>}
+          </div>
+          <p>
+            {summary.itemCount} items · {summary.championCount} champions · {summary.runeCount} runes
+            · {summary.summonerSpellCount} sorts
+          </p>
+          <p>
+            profils de dégâts — meraki {summary.damageProfileSources.meraki} · overrides{' '}
+            {summary.damageProfileSources.override} · repli ddragon{' '}
+            {summary.damageProfileSources.ddragon}
+            {summary.merakiVersion ? ` · meraki ${summary.merakiVersion}` : ' · meraki indisponible'}
+          </p>
+          <Button
+            size="sm"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              try {
+                await refresh()
+              } finally {
+                setBusy(false)
+              }
+            }}
+          >
+            {busy ? 'Vérification…' : 'Vérifier le patch'}
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-parchment">Chargement du catalogue…</p>
+      )}
+    </Frame>
+  )
+}
+
+/** Sonde debug de la Live Client Data API (Phase A0). */
+function LiveGameDebug() {
+  const { status, snapshot } = useLiveGame()
+  const g = snapshot?.data.gameData
+  const players = snapshot?.data.allPlayers ?? []
+
+  return (
+    <Frame title="Live Client Data — debug (A0)">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        <Tag tone={status === 'active' ? 'cyan' : undefined}>
+          {status === 'active' ? 'En partie' : 'Hors partie'}
+        </Tag>
+        {g && (
+          <span className="text-parchment">
+            {g.gameMode} · {g.mapName} · {Math.floor(g.gameTime / 60)}:
+            {String(Math.floor(g.gameTime % 60)).padStart(2, '0')} · {players.length} joueurs
+          </span>
+        )}
+      </div>
+      {snapshot ? (
+        <pre className="mt-3 max-h-64 overflow-auto rounded border border-gold-800 bg-hextech-black/60 p-3 text-[11px] leading-snug text-gold-100/80">
+          {JSON.stringify(
+            {
+              receivedAt: snapshot.receivedAt,
+              activePlayer: snapshot.data.activePlayer.summonerName,
+              currentGold: Math.round(snapshot.data.activePlayer.currentGold),
+              level: snapshot.data.activePlayer.level,
+              players: players.map((p) => ({
+                champ: p.championName,
+                team: p.team,
+                lvl: p.level,
+                kda: `${p.scores.kills}/${p.scores.deaths}/${p.scores.assists}`,
+                items: p.items.map((i) => i.itemID),
+              })),
+            },
+            null,
+            2,
+          )}
+        </pre>
+      ) : (
+        <p className="mt-3 text-sm text-parchment">
+          Aucune partie en cours. Lance une partie (Faille de l'invocateur) pour voir l'instantané.
+        </p>
+      )}
+    </Frame>
   )
 }
 

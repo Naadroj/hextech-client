@@ -1,0 +1,72 @@
+{
+  "Vayne": {
+    "physical": 0.62,
+    "magic": 0.0,
+    "true": 0.38,
+    "pattern": "sustained",
+    "note": "Carreaux d'argent : degats vrais en % PV max sur la 3e attaque, part majeure de son DPS."
+  },
+  "Fiora": {
+    "physical": 0.6,
+    "magic": 0.0,
+    "true": 0.4,
+    "pattern": "sustained",
+    "note": "Passif Duelliste : coups sur les points vitaux = degats vrais en % PV max ; W renvoie aussi des degats vrais."
+  },
+  "Corki": {
+    "physical": 0.45,
+    "magic": 0.5,
+    "true": 0.05,
+    "pattern": "sustained",
+    "note": "Passif Canon compact : ses attaques infligent surtout des degats magiques ; kit a moitie magique."
+  },
+  "Kayle": {
+    "physical": 0.3,
+    "magic": 0.65,
+    "true": 0.05,
+    "pattern": "sustained",
+    "note": "Attaques a distance a degats magiques + gros ratios AP a partir du niveau 11."
+  },
+  "Jax": {
+    "physical": 0.55,
+    "magic": 0.4,
+    "true": 0.05,
+    "pattern": "sustained",
+    "note": "W et passif de R infligent des degats magiques, souvent la moitie de son burst."
+  },
+  "Kaisa": {
+    "physical": 0.55,
+    "magic": 0.4,
+    "true": 0.05,
+    "pattern": "sustained",
+    "note": "Degats partages entre on-hit physique et Q/passif magiques ; build hybride frequent."
+  },
+  "KogMaw": {
+    "physical": 0.5,
+    "magic": 0.45,
+    "true": 0.05,
+    "pattern": "sustained",
+    "note": "W : degats magiques on-hit en % PV max ; R magique. Profil reellement hybride."
+  },
+  "Nidalee": {
+    "physical": 0.25,
+    "magic": 0.7,
+    "true": 0.05,
+    "pattern": "burst",
+    "note": "Javelot et pieges a tres gros ratios AP ; forme humaine quasi 100 % magique."
+  },
+  "Yone": {
+    "physical": 0.5,
+    "magic": 0.0,
+    "true": 0.5,
+    "pattern": "burst",
+    "note": "Passif : une attaque sur deux convertit ses degats magiques en degats vrais ; ~moitie du degat en vrai."
+  },
+  "Teemo": {
+    "physical": 0.15,
+    "magic": 0.8,
+    "true": 0.05,
+    "pattern": "sustained",
+    "note": "E on-hit + champignons : degats quasi exclusivement magiques malgre le role tireur."
+  }
+}

@@ -10,18 +10,22 @@ import { KitchenSink } from './views/KitchenSink'
 import { Home } from './views/Home'
 import { Lobby } from './views/Lobby'
 import { ChampSelect } from './views/ChampSelect'
+import { Coach } from './views/Coach'
+import { Settings } from './views/Settings'
 import { useLcuConnection } from './lib/useLcuConnection'
 
 const NAV: NavItem[] = [
   { id: 'home', label: 'Accueil' },
   { id: 'lobby', label: 'Jouer' },
   { id: 'champ', label: 'Sélection' },
+  { id: 'coach', label: 'Coach' },
   { id: 'shop', label: 'Boutique' },
   { id: 'social', label: 'Amis' },
+  { id: 'settings', label: 'Réglages' },
   { id: 'kit', label: 'Composants' },
 ]
 
-const IMPLEMENTED = new Set(['home', 'lobby', 'champ', 'kit'])
+const IMPLEMENTED = new Set(['home', 'lobby', 'champ', 'coach', 'settings', 'kit'])
 
 export default function App() {
   const [active, setActive] = useState('home')
@@ -43,6 +47,8 @@ export default function App() {
           {active === 'home' && <Home connection={connection} />}
           {active === 'lobby' && <Lobby connection={connection} />}
           {active === 'champ' && <ChampSelect connection={connection} />}
+          {active === 'coach' && <Coach />}
+          {active === 'settings' && <Settings />}
           {active === 'kit' && <KitchenSink />}
           {!IMPLEMENTED.has(active) && (
             <div className="hx-frame max-w-xl">

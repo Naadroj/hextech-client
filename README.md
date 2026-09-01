@@ -20,6 +20,11 @@ npm run test       # tests unitaires
 npm run typecheck  # vérification des types (main + renderer)
 npm run lint       # ESLint
 npm run build      # build de production dans out/
+npm run staticdata # régénère le catalogue embarqué (Data Dragon + Meraki)
+npm run harvest    # moissonne des parties Challenger (clé Riot) — voir BENCH.md
+npm run builds     # agrège le squelette de build → resources/builds.json (BUILDS.md)
+npm run pack       # packaging décompressé dans dist/win-unpacked/
+npm run dist       # installateur NSIS dans dist/  (voir DISTRIBUTION.md)
 npm run assets     # (re)génère build/icon.png et build/tray.png
 ```
 
@@ -50,6 +55,29 @@ npm run assets     # (re)génère build/icon.png et build/tray.png
 - [x] **Phase 6** — Champ Select : plateau (équipes, bans, timer), grille de champions avec recherche, hover + lock-in sur clic explicite, sorts d'invocateur, changement de page de runes
 - [ ] **Phase 7** — Boutique & Inventaire
 - [ ] Phases 8 → 9
+
+### Sous-projet « Coach » — itémisation temps réel (A0 → A6)
+
+Conseille le **prochain item** en jeu, façon Blitz/Porofessor, à partir de la
+**Live Client Data API** (`127.0.0.1:2999`) + un catalogue **Data Dragon /
+Meraki** embarqué. Moteur heuristique, sans données de win rate, tournant dans
+le process principal. Vue **Coach** dans la nav.
+
+- [x] A0 — Live Client Data API (poller `:2999`, pont IPC)
+- [x] A1 — Pipeline données statiques (ddragon + meraki, cache patch, offline)
+- [x] A2 — Couche modèle (stats effectives, EHP, débit de dégâts) — pur
+- [x] A3 — Évaluation menace & contexte (fed-o-meter, rôles, déclencheurs) — pur
+- [x] A4 — Recommandeur (candidats, scoring, justifications, tests golden) — pur
+- [x] A4.1 — Défense vs tempo (menace graduée, coût d'opportunité, mode composant)
+- [x] A5 — Vue Coach (renderer + moteur câblé au poller)
+- [x] A6 — Packaging (electron-builder NSIS, `extraResources`, robustesse) — voir `DISTRIBUTION.md`
+- [x] A4.2 — Corpus de validation : reconstruction de parties **Match-V5** →
+  benchmark du moteur + scénarios golden « pro » — voir `BENCH.md`
+- [x] A2.2 — Modèle de dégâts de sorts réel (ratios Meraki) : `deriveSpellDamage`
+  + `rotationDamage`, remplace le proxy dans `damageOutputIndex`
+- [x] A4.3 — Squelette de build hi-elo (prior hybride) : agrégation Challenger
+  par champion+rôle, repli patch N-1, publication CI + téléchargement client —
+  voir `BUILDS.md`
 
 ## Note OneDrive
 

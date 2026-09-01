@@ -3,3 +3,6 @@ out
 dist
 coverage
 package-lock.json
+resources/staticdata
+test/fixtures
+bench

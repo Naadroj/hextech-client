@@ -1,0 +1,51 @@
+# Packaging (phase A6). Build : `npm run build` puis `npm run dist`.
+# Installateur non signé — Windows SmartScreen affichera un avertissement au
+# premier lancement (voir DISTRIBUTION.md).
+appId: com.hextech.client
+productName: Hextech Client
+copyright: © 2026 Jordan Momper
+
+directories:
+  output: dist
+  buildResources: build
+
+# electron-vite écrit le bundle dans out/ ; on n'embarque que ça + le manifeste.
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+
+# Fichiers lus au runtime via process.resourcesPath (cf. src/main/index.ts) :
+#   resources/staticdata/snapshot.json  → catalogue Data Dragon embarqué (offline)
+#   resources/riotgames.pem (optionnel) → TLS strict LCU ; sinon repli 127.0.0.1
+#   build/tray.png                      → icône systray
+extraResources:
+  - from: resources
+    to: .
+    filter: ['**/*', '!README.md']
+  - from: build/tray.png
+    to: tray.png
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.png
+  # Pas de certificat de signature de code pour l'instant (distribution amis).
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Hextech Client
+
+# Mise à jour automatique via GitHub Releases (electron-updater).
+# Publier avec `GH_TOKEN=<token> npm run dist -- --publish always`.
+# Doit rester aligné avec BUILD_BOOK_URL (src/main/engine/build-book.ts).
+publish:
+  provider: github
+  owner: Naadroj
+  repo: hextech-client
+  releaseType: release

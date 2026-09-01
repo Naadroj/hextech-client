@@ -6,6 +6,10 @@
  */
 
 import type { ConnectionInfo, LcuEvent, RankedStats } from './lcu-types'
+import type { LiveSnapshot, LiveStatus } from './live-types'
+import type { StaticDataSummary } from './staticdata-types'
+import type { CoachAdvice } from './coach-types'
+import type { UpdateState, UpdaterInfo } from './update-types'
 
 export interface WindowControls {
   minimize: () => Promise<void>
@@ -32,6 +36,8 @@ export interface LcuBridge {
   getProfileIcon: (iconId: number) => Promise<string | null>
   /** Icône carrée d'un champion (data: URL), servie localement. */
   getChampionIcon: (championId: number) => Promise<string | null>
+  /** Icône carrée d'un item (data: URL), servie localement. */
+  getItemIcon: (itemId: number) => Promise<string | null>
   /** Splash art (data: URL) du champion le plus maîtrisé, pour le fond. */
   getSplashBackground: () => Promise<string | null>
   acceptReadyCheck: () => Promise<void>
@@ -53,9 +59,67 @@ export interface LcuBridge {
   onEvent: (cb: (event: LcuEvent) => void) => () => void
 }
 
+/**
+ * Pont Live Client Data (serveur local du client de jeu, actif en partie
+ * seulement). **Lecture seule** : aucune mutation, aucun secret — la surface se
+ * limite à l'instantané courant, le statut, et deux abonnements poussés.
+ */
+export interface LiveBridge {
+  /** Dernier instantané connu de la partie (`null` hors partie). */
+  getSnapshot: () => Promise<LiveSnapshot | null>
+  /** Statut courant du poller (`idle` hors partie, `active` en partie). */
+  getStatus: () => Promise<LiveStatus>
+  /** Abonnement aux instantanés (~1/s en partie) ; retourne un désabonnement. */
+  onSnapshot: (cb: (snapshot: LiveSnapshot) => void) => () => void
+  /** Abonnement aux transitions de statut `idle` ↔ `active`. */
+  onStatusChanged: (cb: (status: LiveStatus) => void) => () => void
+}
+
+/**
+ * Pont données statiques (Data Dragon / Meraki). **Lecture seule.** Ne remonte
+ * qu'un résumé (`StaticDataSummary`) ; le catalogue complet reste côté main.
+ */
+export interface StaticDataBridge {
+  getSummary: () => Promise<StaticDataSummary>
+  /** Force une vérification de patch. Retourne `true` si le snapshot a changé. */
+  refresh: () => Promise<boolean>
+  /** Abonnement aux changements de snapshot (patch rafraîchi). */
+  onUpdated: (cb: (summary: StaticDataSummary) => void) => () => void
+}
+
+/**
+ * Pont Coach : le moteur de recommandation d'items (A2→A4) tourne dans le
+ * process principal ; ce pont ne transporte que le conseil résultant.
+ */
+export interface CoachBridge {
+  getAdvice: () => Promise<CoachAdvice>
+  onAdvice: (cb: (advice: CoachAdvice) => void) => () => void
+}
+
+/**
+ * Pont de mise à jour automatique (electron-updater + GitHub Releases).
+ * Toutes les actions sont explicites : rien ne se télécharge ni ne s'installe
+ * sans clic. Inerte hors application packagée.
+ */
+export interface UpdaterBridge {
+  getInfo: () => Promise<UpdaterInfo>
+  /** Vérifie la disponibilité d'une nouvelle version. */
+  check: () => Promise<UpdateState>
+  /** Télécharge la mise à jour disponible. */
+  download: () => Promise<UpdateState>
+  /** Quitte et installe la mise à jour téléchargée. */
+  install: () => Promise<void>
+  /** Abonnement aux transitions d'état ; retourne un désabonnement. */
+  onState: (cb: (state: UpdateState) => void) => () => void
+}
+
 export interface AppApi {
   windowControls: WindowControls
   lcu: LcuBridge
+  live: LiveBridge
+  staticData: StaticDataBridge
+  coach: CoachBridge
+  updater: UpdaterBridge
 }
 
 /** Noms de canaux IPC (source unique de vérité main <-> preload). */
@@ -69,6 +133,7 @@ export const IpcChannels = {
   lcuGetRankedStats: 'lcu:get-ranked-stats',
   lcuGetProfileIcon: 'lcu:get-profile-icon',
   lcuGetChampionIcon: 'lcu:get-champion-icon',
+  lcuGetItemIcon: 'lcu:get-item-icon',
   lcuGetSplash: 'lcu:get-splash',
   lcuAcceptReadyCheck: 'lcu:accept-ready-check',
   lcuDeclineReadyCheck: 'lcu:decline-ready-check',
@@ -85,6 +150,24 @@ export const IpcChannels = {
   lcuRead: 'lcu:read',
   lcuConnectionChanged: 'lcu:connection-changed',
   lcuEvent: 'lcu:event',
+
+  liveGetSnapshot: 'live:get-snapshot',
+  liveGetStatus: 'live:get-status',
+  liveSnapshot: 'live:snapshot',
+  liveStatusChanged: 'live:status-changed',
+
+  staticDataGetSummary: 'staticdata:get-summary',
+  staticDataRefresh: 'staticdata:refresh',
+  staticDataUpdated: 'staticdata:updated',
+
+  coachGetAdvice: 'coach:get-advice',
+  coachAdvice: 'coach:advice',
+
+  updateGetInfo: 'update:get-info',
+  updateCheck: 'update:check',
+  updateDownload: 'update:download',
+  updateInstall: 'update:install',
+  updateState: 'update:state',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]

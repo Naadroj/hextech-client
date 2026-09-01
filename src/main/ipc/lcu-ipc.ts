@@ -86,6 +86,7 @@ const HANDLED_CHANNELS: string[] = [
   IpcChannels.lcuGetRankedStats,
   IpcChannels.lcuGetProfileIcon,
   IpcChannels.lcuGetChampionIcon,
+  IpcChannels.lcuGetItemIcon,
   IpcChannels.lcuGetSplash,
   IpcChannels.lcuChampHover,
   IpcChannels.lcuChampLock,
@@ -171,6 +172,23 @@ export function registerLcuIpc(deps: RegisterLcuIpcDeps): () => void {
       return `data:${mime};base64,${res.body.toString('base64')}`
     } catch (err) {
       logger.warn('lcu:get-champion-icon a échoué', String(err))
+      return null
+    }
+  })
+
+  ipcMain.handle(IpcChannels.lcuGetItemIcon, async (_event, ...args) => {
+    const itemId = args[0]
+    const rest = connection.restClient
+    if (!rest || typeof itemId !== 'number' || !Number.isInteger(itemId) || itemId <= 0) {
+      return null
+    }
+    try {
+      const res = await rest.requestRaw('GET', `/lol-game-data/assets/v1/items/${itemId}.png`)
+      if (!res.ok || res.body.byteLength === 0) return null
+      const mime = res.contentType || 'image/png'
+      return `data:${mime};base64,${res.body.toString('base64')}`
+    } catch (err) {
+      logger.warn('lcu:get-item-icon a échoué', String(err))
       return null
     }
   })
