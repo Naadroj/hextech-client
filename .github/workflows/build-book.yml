@@ -1,6 +1,8 @@
 # Régénère le squelette de build (phase A4.3) et le publie en asset de Release.
 # Le client télécharge ce fichier au démarrage — voir src/main/engine/build-book.ts.
 #
+# Repo : github.com/Naadroj/hextech-client  (Actions doit être activé).
+#
 # Prérequis :
 #   - Secret de dépôt `RIOT_API_KEY` = une *Personal API Key* Riot (ne pas
 #     utiliser une clé de dev, elle expire en 24 h et le job casserait).
