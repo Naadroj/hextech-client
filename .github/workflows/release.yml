@@ -1,0 +1,39 @@
+# Build l'installeur Windows et le publie en GitHub Release (+ métadonnées
+# electron-updater). Déclenché en poussant un tag `vX.Y.Z`.
+#
+#   npm version patch        # bump package.json + crée le tag
+#   git push --follow-tags    # déclenche ce workflow
+#
+# Lien à partager : https://github.com/Naadroj/hextech-client/releases/latest
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: # build manuel (publie sur la release de la version de package.json)
+
+permissions:
+  contents: write # créer / mettre à jour la Release
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Build + publier l'installeur
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build && npx --no-install electron-builder --win --publish always
