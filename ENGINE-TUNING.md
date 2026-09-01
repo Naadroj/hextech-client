@@ -96,6 +96,23 @@ neuf pour le vrai chiffre (voir `BENCH.md`).
 
 ---
 
+## `src/shared/engine/recommend/committed-axis.ts` — axe AD/AP déjà engagé
+
+Pour les champions flex (Shaco, Kayle, Kaï'Sa…) : une fois assez d'or posé d'un
+côté, on arrête de conseiller l'autre. `inferCommittedAxis` somme la valeur-or
+des stats des items **de `a.self.items` (composants inclus)** dont `itemIntent`
+est offensif (`ap-damage` vs `ad-*`).
+
+| constante | valeur | rôle |
+| --- | --- | --- |
+| `MIN_GOLD` | **650** | en dessous de ce total offensif, pas d'axe engagé (≈ un gros composant) ; ↓ pour réagir dès le 1er composant |
+| `DOMINANCE` | **0.7** | part du total qu'un côté doit atteindre pour verrouiller l'axe |
+
+Effets quand l'axe est verrouillé : `damageAxisKeys` renvoie l'axe engagé (prime
+sur `profile.primary`) ; `buildPrior` renvoie 0 pour tout item de l'axe opposé.
+
+---
+
 ## `src/shared/engine/recommend/target.ts`
 
 `representativeTarget()` : **65 %** cible la plus tuable + **35 %** moyenne équipe

@@ -5,7 +5,25 @@ import type { BuildBook } from '../../shared/build-types'
 import type { CoachAdvice } from '../../shared/coach-types'
 import { IDLE_ADVICE } from '../../shared/coach-types'
 import { assessGame } from '../../shared/engine/context'
-import { recommend } from '../../shared/engine/recommend'
+import { recommend, type ItemRecommendation, type Recommendation } from '../../shared/engine/recommend'
+
+/**
+ * Substitue le nom d'affichage localisé (`nameLocalized`) sur chaque item
+ * conseillé. Le moteur a déjà tourné avec le nom anglais (appariements de
+ * bottes, etc.) — on ne touche qu'au libellé remonté à l'UI.
+ */
+function localizeNames(rec: Recommendation, sd: StaticData): Recommendation {
+  const fix = <T extends ItemRecommendation>(r: T): T => {
+    const loc = sd.getItem(r.itemId)?.nameLocalized
+    return loc ? { ...r, name: loc } : r
+  }
+  return {
+    ...rec,
+    primary: rec.primary ? fix(rec.primary) : null,
+    alternatives: rec.alternatives.map(fix),
+    boots: rec.boots ? fix(rec.boots) : null,
+  }
+}
 
 /**
  * Orchestrateur du moteur de coaching : à chaque instantané du poller Live,
@@ -80,7 +98,10 @@ export class Coach extends EventEmitter {
       return
     }
 
-    const rec = recommend(assessment, sd, this.deps.getBuildBook?.() ?? undefined)
+    const rec = localizeNames(
+      recommend(assessment, sd, this.deps.getBuildBook?.() ?? undefined),
+      sd,
+    )
 
     // Catalogue périmé : champions inconnus (championId 0 = profil de repli).
     const unknownEnemies = assessment.threat.enemies.filter((e) => e.championId === 0).length

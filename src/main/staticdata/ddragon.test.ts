@@ -152,6 +152,16 @@ describe('normalizeItems', () => {
     // Clé non numérique ignorée.
     expect(items.some((i) => Number.isNaN(i.id))).toBe(false)
   })
+
+  it('attache nameLocalized quand une table de noms est fournie (et diffère)', () => {
+    const items = normalizeItems(file as never, new Map([
+      [3078, 'Force Trinité'],
+      [2003, 'Health Potion'], // identique → non attaché
+    ]))
+    expect(items.find((i) => i.id === 3078)!.nameLocalized).toBe('Force Trinité')
+    expect(items.find((i) => i.id === 2003)!.nameLocalized).toBeUndefined()
+    expect(items.find((i) => i.id === 3078)!.name).toBe('Trinity Force') // canonique EN intact
+  })
 })
 
 describe('normalizeChampions / runes / summoners', () => {

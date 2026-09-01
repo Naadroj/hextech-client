@@ -125,4 +125,24 @@ describe('Coach', () => {
     poller.emit('snapshot', snap(SCENE))
     expect(advices).toHaveLength(0)
   })
+
+  it('substitue le nom d’affichage localisé sur les items conseillés', () => {
+    const base = makeStaticData()
+    const sd = {
+      ...base,
+      getItem: (id: number) => {
+        const it = base.getItem(id)
+        return it ? { ...it, nameLocalized: `FR:${it.name}` } : it
+      },
+    }
+    const poller = new FakePoller()
+    const coach = new Coach({ poller, getStaticData: () => sd, now: () => 1000 })
+    const advices: unknown[] = []
+    coach.on('advice', (a) => advices.push(a))
+    poller.emit('snapshot', snap(SCENE))
+
+    const rec = (advices[0] as { recommendation: { primary: { name: string }; alternatives: { name: string }[] } }).recommendation
+    expect(rec.primary.name.startsWith('FR:')).toBe(true)
+    for (const alt of rec.alternatives) expect(alt.name.startsWith('FR:')).toBe(true)
+  })
 })

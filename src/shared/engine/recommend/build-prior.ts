@@ -1,6 +1,8 @@
 import type { NormalizedItem } from '../../staticdata-types'
 import type { BuildBook, BuildItem, RoleBuild } from '../../build-types'
 import type { GameAssessment } from '../context'
+import { itemIntent } from './categories'
+import { isOffCommittedAxis } from './committed-axis'
 import type { ItemKind } from './types'
 
 /**
@@ -62,6 +64,16 @@ export function buildPrior(
   if (!book) return NONE
   const rb = book.getBuild(a.self.slug, a.self.role)
   if (!rb || rb.games < BUILD_MIN_GAMES) return NONE
+
+  // Le squelette d'un champion flex mélange builds AD et AP : ne pas pousser un
+  // item de l'axe opposé à celui déjà engagé par les achats.
+  if (
+    kind !== 'boots' &&
+    a.self.committedAxis &&
+    isOffCommittedAxis(itemIntent(item), a.self.committedAxis)
+  ) {
+    return NONE
+  }
 
   const nextSlot = a.self.completedItemCount + 1
   const common = { role: rb.role, games: rb.games, patchSpan: rb.patchSpan, nextSlot }

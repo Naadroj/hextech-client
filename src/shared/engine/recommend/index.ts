@@ -5,6 +5,7 @@ import { generateCandidates } from './candidates'
 import { representativeTarget } from './target'
 import { contextWeights } from './weights'
 import { scoreItem } from './score'
+import { inferCommittedAxis } from './committed-axis'
 import { reasonsFor, reasonsForBoots, reasonsForComponent } from './explain'
 import type { ItemRecommendation, Recommendation } from './types'
 
@@ -17,6 +18,7 @@ export * from './weights'
 export * from './tempo'
 export * from './score'
 export * from './build-prior'
+export * from './committed-axis'
 export * from './explain'
 
 const pct = (v: number): string => `${Math.round(v * 100)} %`
@@ -28,7 +30,14 @@ const pct = (v: number): string => `${Math.round(v * 100)} %`
 /** Seuil de sévérité à partir duquel on envisage une reco de composant défensif. */
 const COMPONENT_SEVERITY_GATE = 0.55
 
-export function recommend(a: GameAssessment, sd: StaticData, book?: BuildBook): Recommendation {
+export function recommend(a0: GameAssessment, sd: StaticData, book?: BuildBook): Recommendation {
+  // Axe déjà engagé par l'inventaire (AD/AP) → on l'attache à une copie de
+  // l'évaluation, sans muter l'objet du caller.
+  const committedAxis = inferCommittedAxis(a0, sd)
+  const a: GameAssessment = committedAxis
+    ? { ...a0, self: { ...a0.self, committedAxis } }
+    : a0
+
   const target = representativeTarget(a)
   const weights = contextWeights(a)
   const { legendaries, boots, components, needsBoots } = generateCandidates(a, sd)

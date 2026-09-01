@@ -13,16 +13,20 @@ import { fetchJson, type FetchJsonOptions } from './fetcher'
  * par patch).
  *
  * Locale figée à `en_US` : les libellés de stats dans la description HTML
- * (« Ability Haste », « Lethality »…) doivent rester stables pour le parseur.
- * La localisation d'affichage (noms d'items FR) viendra en A5 via le LCU.
+ * (« Ability Haste », « Lethality »…) doivent rester stables pour le parseur,
+ * et le moteur matche des chaînes anglaises. Les noms d'affichage FR sont
+ * récupérés **en plus** (`fetchLocalizedItemNames`) et n'alimentent que l'UI.
  */
 
 export const DDRAGON_LOCALE = 'en_US'
+/** Locale d'affichage : noms d'items localisés (jamais utilisée par le moteur). */
+export const DDRAGON_DISPLAY_LOCALE = 'fr_FR'
 const CDN = 'https://ddragon.leagueoflegends.com'
 
 export const ddragonUrls = {
   versions: `${CDN}/api/versions.json`,
   items: (v: string) => `${CDN}/cdn/${v}/data/${DDRAGON_LOCALE}/item.json`,
+  itemsLocalized: (v: string) => `${CDN}/cdn/${v}/data/${DDRAGON_DISPLAY_LOCALE}/item.json`,
   champions: (v: string) => `${CDN}/cdn/${v}/data/${DDRAGON_LOCALE}/champion.json`,
   runes: (v: string) => `${CDN}/cdn/${v}/data/${DDRAGON_LOCALE}/runesReforged.json`,
   summoners: (v: string) => `${CDN}/cdn/${v}/data/${DDRAGON_LOCALE}/summoner.json`,
@@ -95,6 +99,27 @@ export async function fetchLatestVersion(options?: FetchJsonOptions): Promise<st
 
 export async function fetchRawItems(v: string, options?: FetchJsonOptions): Promise<RawItemFile> {
   return fetchJson<RawItemFile>(ddragonUrls.items(v), options)
+}
+
+/**
+ * Noms d'items localisés (`fr_FR`), `id → nom`. Purement pour l'affichage.
+ * Toute défaillance réseau ⇒ `Map` vide (repli sur le nom anglais).
+ */
+export async function fetchLocalizedItemNames(
+  v: string,
+  options?: FetchJsonOptions,
+): Promise<Map<number, string>> {
+  const out = new Map<number, string>()
+  try {
+    const file = await fetchJson<RawItemFile>(ddragonUrls.itemsLocalized(v), options)
+    for (const [idStr, raw] of Object.entries(file.data ?? {})) {
+      const id = Number.parseInt(idStr, 10)
+      if (Number.isFinite(id) && raw?.name) out.set(id, raw.name)
+    }
+  } catch {
+    /* repli anglais */
+  }
+  return out
 }
 export async function fetchRawChampions(
   v: string,
@@ -208,7 +233,10 @@ export function mergeItemStats(description: string, legacy: Record<string, numbe
   return { ...fromLegacy, ...fromDesc }
 }
 
-export function normalizeItems(file: RawItemFile): NormalizedItem[] {
+export function normalizeItems(
+  file: RawItemFile,
+  localizedNames?: Map<number, string>,
+): NormalizedItem[] {
   const out: NormalizedItem[] = []
   for (const [idStr, raw] of Object.entries(file.data ?? {})) {
     const id = Number.parseInt(idStr, 10)
@@ -216,9 +244,11 @@ export function normalizeItems(file: RawItemFile): NormalizedItem[] {
     const tags = raw.tags ?? []
     const description = raw.description ?? ''
     const into = toIntList(raw.into)
+    const localized = localizedNames?.get(id)
     out.push({
       id,
       name: raw.name ?? `Item ${id}`,
+      ...(localized && localized !== raw.name ? { nameLocalized: localized } : {}),
       description,
       plaintext: raw.plaintext ?? '',
       tags,

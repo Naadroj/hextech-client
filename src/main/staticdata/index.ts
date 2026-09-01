@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { DDRAGON_LOCALE } from './ddragon'
 import {
   fetchLatestVersion,
+  fetchLocalizedItemNames,
   fetchRawChampions,
   fetchRawItems,
   fetchRawRunes,
@@ -44,11 +45,12 @@ export async function fetchAndBuildSnapshot(
   const now = options.now ?? (() => new Date())
   const version = options.version ?? (await fetchLatestVersion({ fetcher: options.fetcher }))
 
-  const [rawItems, rawChamps, rawRunes, rawSummoners] = await Promise.all([
+  const [rawItems, rawChamps, rawRunes, rawSummoners, itemNamesFr] = await Promise.all([
     fetchRawItems(version, { fetcher: options.fetcher }),
     fetchRawChampions(version, { fetcher: options.fetcher }),
     fetchRawRunes(version, { fetcher: options.fetcher }),
     fetchRawSummoners(version, { fetcher: options.fetcher }),
+    fetchLocalizedItemNames(version, { fetcher: options.fetcher }),
   ])
 
   let meraki = null
@@ -67,7 +69,7 @@ export async function fetchAndBuildSnapshot(
       merakiVersion: meraki ? version : null,
       origin: 'cache',
     },
-    items: normalizeItems(rawItems),
+    items: normalizeItems(rawItems, itemNamesFr),
     champions,
     damageProfiles: deriveDamageProfiles(champions, meraki),
     spellDamage: deriveSpellDamage(champions, meraki),

@@ -156,7 +156,10 @@ export interface DamageProfileOverride {
 
 export interface NormalizedItem {
   id: number
+  /** Nom canonique **en anglais** — sert aux appariements du moteur, ne pas localiser. */
   name: string
+  /** Nom d'affichage localisé (fr_FR), si disponible. Affichage seulement. */
+  nameLocalized?: string
   /** Description HTML brute de Data Dragon (source des stats « modernes »). */
   description: string
   plaintext: string

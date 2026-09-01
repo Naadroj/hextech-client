@@ -3,6 +3,7 @@ import type { ItemRecommendation } from '@shared/engine/recommend/types'
 import { Frame, Tag } from '../components/hextech'
 import { ItemIcon } from '../components/ItemIcon'
 import { useCoach } from '../lib/useCoach'
+import { useStaticData } from '../lib/useStaticData'
 
 function fedLabel(fed: number): string {
   if (fed >= 1) return 'Très en avance'
@@ -32,10 +33,18 @@ function MixBar({ label, value, tone }: { label: string; value: number; tone: st
   )
 }
 
-function ItemRow({ item, primary }: { item: ItemRecommendation; primary?: boolean }) {
+function ItemRow({
+  item,
+  primary,
+  version,
+}: {
+  item: ItemRecommendation
+  primary?: boolean
+  version?: string | null
+}) {
   return (
     <div className={`flex gap-4 ${primary ? 'items-start' : 'items-center'}`}>
-      <ItemIcon itemId={item.itemId} size={primary ? 56 : 40} title={item.name} />
+      <ItemIcon itemId={item.itemId} version={version} size={primary ? 56 : 40} title={item.name} />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <span className={primary ? 'text-lg text-gold-100' : 'text-gold-100'}>{item.name}</span>
@@ -64,6 +73,8 @@ function ItemRow({ item, primary }: { item: ItemRecommendation; primary?: boolea
 }
 
 export function CoachView({ advice }: { advice: CoachAdvice }) {
+  const version = useStaticData().summary?.version ?? null
+
   if (advice.status === 'idle' || !advice.self || !advice.threat) {
     return (
       <Frame title="Coach" className="mx-auto max-w-2xl">
@@ -99,7 +110,7 @@ export function CoachView({ advice }: { advice: CoachAdvice }) {
       <Frame title="Prochain item conseillé">
         {rec?.primary ? (
           <div className="space-y-5">
-            <ItemRow item={rec.primary} primary />
+            <ItemRow item={rec.primary} primary version={version} />
 
             {rec.alternatives.length > 0 && (
               <div>
@@ -108,7 +119,7 @@ export function CoachView({ advice }: { advice: CoachAdvice }) {
                 </div>
                 <div className="space-y-2">
                   {rec.alternatives.map((alt) => (
-                    <ItemRow key={alt.itemId} item={alt} />
+                    <ItemRow key={alt.itemId} item={alt} version={version} />
                   ))}
                 </div>
               </div>
@@ -119,7 +130,7 @@ export function CoachView({ advice }: { advice: CoachAdvice }) {
                 <div className="mb-2 font-display text-[10px] uppercase tracking-hexwide text-gold-700">
                   Bottes
                 </div>
-                <ItemRow item={rec.boots} />
+                <ItemRow item={rec.boots} version={version} />
                 {rec.boots.reasons[0] && (
                   <p className="mt-1 text-sm text-gold-100/80">• {rec.boots.reasons[0]}</p>
                 )}

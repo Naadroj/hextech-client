@@ -51,7 +51,12 @@ export function damageAxisKeys(a: GameAssessment): (keyof StatBlock)[] {
   const prim = a.self.profile.primary
 
   let base: (keyof StatBlock)[]
-  if (prim === 'magic' || (roles.includes('MAGE') && prim !== 'physical')) base = MAGIC_AXIS
+  // Axe déjà engagé par les achats : il prime sur le profil du champion (cas
+  // flex — Shaco AD après un 1er item AD ne « voit » plus l'AP comme sur-axe).
+  if (a.self.committedAxis === 'magic') base = MAGIC_AXIS
+  else if (a.self.committedAxis === 'physical') {
+    base = roles.includes('MARKSMAN') ? MARKSMAN_AXIS : BRUISER_AXIS
+  } else if (prim === 'magic' || (roles.includes('MAGE') && prim !== 'physical')) base = MAGIC_AXIS
   else if (roles.includes('MARKSMAN')) base = MARKSMAN_AXIS
   else if (prim === 'physical') base = BRUISER_AXIS
   else base = [...new Set([...MAGIC_AXIS, ...MARKSMAN_AXIS])]

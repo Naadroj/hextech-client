@@ -61,6 +61,13 @@ export interface SelfAssessment {
   items: number[]
   completedItemCount: number
   profile: DamageProfile
+  /**
+   * Axe de dégâts **déjà engagé** par les achats (légendaires + composants), si
+   * la répartition valeur-or est nette (≥ 70 % d'un côté). Renseigné par le
+   * recommandeur (A4), pas par la couche contexte. Sert aux champions flex
+   * (Shaco, Kayle…) : une fois un 1er item AD posé, on arrête de conseiller de l'AP.
+   */
+  committedAxis?: 'physical' | 'magic'
   /** Stats effectives réelles, lues dans `activePlayer.championStats`. */
   stats: StatBlock
   /** AD de base au niveau (sans items) — pour les ratios « % bonus AD ». */
