@@ -33,7 +33,8 @@ const { electronMock, auMock } = vi.hoisted(() => {
 })
 
 vi.mock('electron', () => electronMock)
-vi.mock('electron-updater', () => ({ autoUpdater: auMock }))
+// Le code importe l'export par défaut (module CJS) : le mock fournit `default`.
+vi.mock('electron-updater', () => ({ default: { autoUpdater: auMock }, autoUpdater: auMock }))
 
 const { Updater } = await import('./updater')
 

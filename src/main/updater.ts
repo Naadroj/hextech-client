@@ -1,7 +1,11 @@
 import { EventEmitter } from 'node:events'
 import { app } from 'electron'
-import { autoUpdater } from 'electron-updater'
+// `electron-updater` est un module CommonJS : en sortie ESM (build packagé), le
+// loader Node refuse l'import nommé. On passe par l'export par défaut.
+import electronUpdater from 'electron-updater'
 import { logger } from './logger'
+
+const { autoUpdater } = electronUpdater
 import {
   IDLE_UPDATE_STATE,
   type UpdateState,
