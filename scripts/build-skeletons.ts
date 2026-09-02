@@ -101,28 +101,40 @@ for (const key of [...allKeys].sort()) {
   qualifiedSlugRoles.add(slug)
 }
 
-// ── Repli « tous rôles » pour les champions sans aucune entrée ─────────────
+// ── Repli poolé pour les champions **mono-rôle** trop peu vus ──────────────
+// On ne poole PAS un champion joué dans plusieurs rôles réels (builds distincts
+// → on ne veut jamais conseiller un build de jungle à un joueur top).
+const REAL = 3
 const slugsSeen = new Set([...allKeys].map((k) => k.split('|')[0]))
 for (const slug of slugsSeen) {
   if (qualifiedSlugRoles.has(slug)) continue
-  // pool tous rôles, courant puis N-1
-  let pooled: Acc | undefined
-  let dominant: { role: BuildRole; games: number } | null = null
-  let usedPrev = false
-  for (const [map, isPrev] of [[curMap, false], [prevMap, true]] as const) {
+
+  const rolesGames = new Map<BuildRole, number>()
+  for (const map of [curMap, prevMap]) {
     for (const [key, acc] of map) {
       const [s, roleRaw] = key.split('|')
       if (s !== slug) continue
+      rolesGames.set(roleRaw as BuildRole, (rolesGames.get(roleRaw as BuildRole) ?? 0) + acc.games)
+    }
+  }
+  const realRoles = [...rolesGames.entries()].filter(([, g]) => g >= REAL).map(([r]) => r)
+  if (realRoles.length !== 1) continue // 0 = bruit, ≥2 = builds distincts → repli moteur
+
+  let pooled: Acc | undefined
+  let usedPrev = false
+  for (const [map, isPrev] of [[curMap, false], [prevMap, true]] as const) {
+    for (const [key, acc] of map) {
+      if (key.split('|')[0] !== slug) continue
       pooled = merge(pooled, acc)
       if (isPrev) usedPrev = true
-      if (!dominant || acc.games > dominant.games) dominant = { role: roleRaw as BuildRole, games: acc.games }
     }
     if (pooled && pooled.games >= minGames) break
   }
-  if (!pooled || pooled.games < minGames || !dominant) continue
-  const rb = toRoleBuild(dominant.role, pooled)
+  if (!pooled || pooled.games < minGames) continue
+  const rb = toRoleBuild(realRoles[0], pooled)
   if (!rb) continue
   rb.roleAgnostic = true
+  rb.pooledRoles = realRoles
   if (usedPrev) rb.patchSpan = `${prevPatch}→${patch}`
   champs.set(slug, { slug, roles: [rb] })
   entryCount += 1

@@ -54,10 +54,14 @@ export interface RoleBuild {
   /** Nombre d'échantillons (joueur × partie) agrégés. */
   games: number
   /**
-   * `true` = entrée **tous rôles confondus** (champion trop peu vu par rôle,
-   * échantillons poolés). Sert de repli quand aucune entrée par rôle ne qualifie.
+   * `true` = entrée **poolée** (champion trop peu vu, échantillons de rôle
+   * regroupés). Sert de repli quand l'entrée `slug|role` exacte manque — mais
+   * **uniquement pour un rôle listé dans `pooledRoles`** : jamais de build d'un
+   * rôle vers un autre (ex. build jungle proposé à un joueur top).
    */
   roleAgnostic?: boolean
+  /** Rôles réellement observés dans le pool (restreint le repli `getBuild`). */
+  pooledRoles?: BuildRole[]
   /**
    * Renseigné quand le couple était trop peu vu sur le patch courant et a été
    * complété avec le patch précédent (ex. `"16.16→16.17"`). Absent = patch pur.
@@ -110,12 +114,12 @@ export const EMPTY_BUILD_BOOK: BuildBook = {
 
 export function indexBuildBook(file: BuildBookFile): BuildBook {
   const byKey = new Map<string, RoleBuild>()
-  /** slug → entrée `roleAgnostic` (repli quand le rôle exact manque). */
-  const agnostic = new Map<string, RoleBuild>()
+  /** slug → entrée poolée (repli quand le rôle exact manque). */
+  const pooled = new Map<string, RoleBuild>()
   for (const champ of file.builds ?? []) {
     for (const rb of champ.roles ?? []) {
       byKey.set(`${norm(champ.slug)}|${rb.role}`, rb)
-      if (rb.roleAgnostic) agnostic.set(norm(champ.slug), rb)
+      if (rb.roleAgnostic) pooled.set(norm(champ.slug), rb)
     }
   }
   return {
@@ -125,7 +129,13 @@ export function indexBuildBook(file: BuildBookFile): BuildBook {
     getBuild: (slug, role) => {
       const s = norm(slug)
       const r = normalizeBuildRole(role)
-      return (r && byKey.get(`${s}|${r}`)) || agnostic.get(s) || undefined
+      const exact = r ? byKey.get(`${s}|${r}`) : undefined
+      if (exact) return exact
+      const p = pooled.get(s)
+      if (!p || !r) return undefined
+      // Repli poolé : seulement si le rôle demandé fait partie des rôles observés
+      // (ou `pooledRoles` absent = ancien format → tolérant).
+      return !p.pooledRoles || p.pooledRoles.includes(r) ? p : undefined
     },
   }
 }

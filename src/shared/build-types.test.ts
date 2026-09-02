@@ -66,7 +66,7 @@ describe('indexBuildBook', () => {
   })
 })
 
-describe('repli tous-rôles (roleAgnostic)', () => {
+describe('repli poolé (roleAgnostic + pooledRoles)', () => {
   const book = indexBuildBook({
     ...FILE,
     builds: [
@@ -77,6 +77,7 @@ describe('repli tous-rôles (roleAgnostic)', () => {
             role: 'JUNGLE',
             games: 9,
             roleAgnostic: true,
+            pooledRoles: ['JUNGLE'],
             boots: [],
             core: [{ id: 6620, pickRate: 0.7, avgSlot: 1.2 }],
             situational: [],
@@ -86,14 +87,25 @@ describe('repli tous-rôles (roleAgnostic)', () => {
     ],
   })
 
-  it('sert l’entrée poolée même quand le rôle demandé ne correspond pas', () => {
+  it('sert l’entrée poolée pour un rôle de pooledRoles', () => {
     expect(book.getBuild('Ivern', 'JUNGLE')?.core[0].id).toBe(6620)
-    expect(book.getBuild('Ivern', 'SUPPORT')?.roleAgnostic).toBe(true)
-    expect(book.getBuild('Ivern', 'TOP')?.core[0].id).toBe(6620)
+  })
+
+  it('NE sert PAS un rôle absent de pooledRoles (pas de build jungle pour un top)', () => {
+    expect(book.getBuild('Ivern', 'TOP')).toBeUndefined()
+    expect(book.getBuild('Ivern', 'SUPPORT')).toBeUndefined()
   })
 
   it('une entrée par rôle normale ne fait pas de repli inter-rôles', () => {
     expect(indexBuildBook(FILE).getBuild('Nasus', 'MID')).toBeUndefined()
+  })
+
+  it('pooledRoles absent (ancien format) → repli tolérant', () => {
+    const legacy = indexBuildBook({
+      ...FILE,
+      builds: [{ slug: 'Ivern', roles: [{ role: 'JUNGLE', games: 9, roleAgnostic: true, boots: [], core: [{ id: 6620, pickRate: 0.7, avgSlot: 1 }], situational: [] }] }],
+    })
+    expect(legacy.getBuild('Ivern', 'TOP')?.core[0].id).toBe(6620)
   })
 })
 
