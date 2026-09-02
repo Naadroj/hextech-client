@@ -54,6 +54,11 @@ export interface RoleBuild {
   /** Nombre d'échantillons (joueur × partie) agrégés. */
   games: number
   /**
+   * `true` = entrée **tous rôles confondus** (champion trop peu vu par rôle,
+   * échantillons poolés). Sert de repli quand aucune entrée par rôle ne qualifie.
+   */
+  roleAgnostic?: boolean
+  /**
    * Renseigné quand le couple était trop peu vu sur le patch courant et a été
    * complété avec le patch précédent (ex. `"16.16→16.17"`). Absent = patch pur.
    */
@@ -105,9 +110,12 @@ export const EMPTY_BUILD_BOOK: BuildBook = {
 
 export function indexBuildBook(file: BuildBookFile): BuildBook {
   const byKey = new Map<string, RoleBuild>()
+  /** slug → entrée `roleAgnostic` (repli quand le rôle exact manque). */
+  const agnostic = new Map<string, RoleBuild>()
   for (const champ of file.builds ?? []) {
     for (const rb of champ.roles ?? []) {
       byKey.set(`${norm(champ.slug)}|${rb.role}`, rb)
+      if (rb.roleAgnostic) agnostic.set(norm(champ.slug), rb)
     }
   }
   return {
@@ -115,8 +123,9 @@ export function indexBuildBook(file: BuildBookFile): BuildBook {
     sampleGames: file.sampleGames,
     entryCount: byKey.size,
     getBuild: (slug, role) => {
+      const s = norm(slug)
       const r = normalizeBuildRole(role)
-      return r ? byKey.get(`${norm(slug)}|${r}`) : undefined
+      return (r && byKey.get(`${s}|${r}`)) || agnostic.get(s) || undefined
     },
   }
 }

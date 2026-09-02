@@ -1,11 +1,14 @@
-// Moisson de parties Challenger soloqueue (RANKED_SOLO 420) du patch courant,
-// pour le corpus de validation du moteur Coach (phase A4.2).
+// Moisson **large** de parties soloqueue (RANKED_SOLO 420) hi-elo, patch courant
+// (+ N-1 pour le repli). Premier passage ; `npm run topup` complète ensuite les
+// couples champion+rôle rares.
 //
 // Usage :
 //   RIOT_API_KEY=RGAPI-xxxx npm run harvest -- [nbJoueurs] [matchsParJoueur]
-//   RIOT_PLATFORM=euw1 RIOT_REGION=europe  (défauts)
+//   RIOT_PLATFORM=euw1 RIOT_REGION=europe            (défauts)
+//   HARVEST_TIERS=challenger,grandmaster,master      (défaut : les 3)
 //
-// Écrit bench/raw/{matchId}.match.json + .timeline.json (gitignored).
+// Écrit bench/raw/{matchId}.match.json + .timeline.json (gitignored, mis en
+// cache par patch dans la CI → le corpus grossit à chaque run).
 
 import { mkdirSync, existsSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -13,45 +16,63 @@ import { riot } from './lib/riot'
 import { RAW_DIR, loadStaticData, patchOfVersion, previousPatch } from './lib/local'
 import type { MatchDto, TimelineDto } from '../src/shared/engine/replay/types'
 
-const NB_PLAYERS = Number(process.argv[2] ?? 30)
-const PER_PLAYER = Number(process.argv[3] ?? 6)
+const NB_PLAYERS = Number(process.argv[2] ?? 60)
+const PER_PLAYER = Number(process.argv[3] ?? 12)
+const TIERS = (process.env.HARVEST_TIERS ?? 'challenger,grandmaster,master')
+  .split(',')
+  .map((t) => t.trim().toLowerCase())
+  .filter(Boolean)
+
 const { patch } = loadStaticData()
-// On garde aussi le patch précédent : `npm run builds` s'en sert pour compléter
-// les champions trop peu vus sur le patch courant (repli N-1).
 const prevPatch = previousPatch(patch)
 const allowedPatches = new Set([patch, ...(prevPatch ? [prevPatch] : [])])
 
 mkdirSync(RAW_DIR, { recursive: true })
 console.log(
-  `Patchs gardés : ${[...allowedPatches].join(', ')} · ${NB_PLAYERS} joueurs × ${PER_PLAYER} parties`,
+  `Patchs gardés : ${[...allowedPatches].join(', ')} · tiers ${TIERS.join('+')} · ${NB_PLAYERS} joueurs/tier × ${PER_PLAYER} parties`,
 )
 
 interface LeagueList {
   entries: { summonerId: string; puuid?: string }[]
 }
+const LEAGUE_PATH: Record<string, string> = {
+  challenger: '/lol/league/v4/challengerleagues/by-queue/RANKED_SOLO_5x5',
+  grandmaster: '/lol/league/v4/grandmasterleagues/by-queue/RANKED_SOLO_5x5',
+  master: '/lol/league/v4/masterleagues/by-queue/RANKED_SOLO_5x5',
+}
 
-const league = await riot<LeagueList>(
-  '/lol/league/v4/challengerleagues/by-queue/RANKED_SOLO_5x5',
-  'platform',
-)
-const top = league.entries.slice(0, NB_PLAYERS)
-
-const puuids: string[] = []
-for (const e of top) {
-  if (e.puuid) {
-    puuids.push(e.puuid)
+const puuids = new Set<string>()
+for (const tier of TIERS) {
+  const path = LEAGUE_PATH[tier]
+  if (!path) {
+    console.warn(`  tier inconnu ignoré : ${tier}`)
     continue
   }
   try {
-    const s = await riot<{ puuid: string }>(
-      `/lol/summoner/v4/summoners/${encodeURIComponent(e.summonerId)}`,
-      'platform',
-    )
-    puuids.push(s.puuid)
+    const league = await riot<LeagueList>(path, 'platform')
+    const top = [...league.entries]
+      .sort((a, b) => ((b as { leaguePoints?: number }).leaguePoints ?? 0) - ((a as { leaguePoints?: number }).leaguePoints ?? 0))
+      .slice(0, NB_PLAYERS)
+    for (const e of top) {
+      if (e.puuid) {
+        puuids.add(e.puuid)
+        continue
+      }
+      try {
+        const s = await riot<{ puuid: string }>(
+          `/lol/summoner/v4/summoners/${encodeURIComponent(e.summonerId)}`,
+          'platform',
+        )
+        puuids.add(s.puuid)
+      } catch (err) {
+        console.warn('  summoner KO', String(err))
+      }
+    }
   } catch (err) {
-    console.warn('  summoner KO', String(err))
+    console.warn(`  ligue ${tier} KO`, String(err))
   }
 }
+console.log(`${puuids.size} joueurs uniques`)
 
 const matchIds = new Set<string>()
 for (const puuid of puuids) {
@@ -67,7 +88,7 @@ for (const puuid of puuids) {
 console.log(`${matchIds.size} matchs uniques à examiner`)
 
 let kept = 0
-let skippedPatch = 0
+let skipped = 0
 let cached = 0
 for (const id of matchIds) {
   const matchPath = resolve(RAW_DIR, `${id}.match.json`)
@@ -82,20 +103,20 @@ for (const id of matchIds) {
       match.info.mapId !== 11 ||
       !allowedPatches.has(patchOfVersion(match.info.gameVersion))
     ) {
-      skippedPatch++
+      skipped++
       continue
     }
     const timeline = await riot<TimelineDto>(`/lol/match/v5/matches/${id}/timeline`)
     writeFileSync(matchPath, JSON.stringify(match))
     writeFileSync(resolve(RAW_DIR, `${id}.timeline.json`), JSON.stringify(timeline))
     kept++
-    if (kept % 10 === 0) console.log(`  ${kept} gardés…`)
+    if (kept % 25 === 0) console.log(`  ${kept} gardés…`)
   } catch (err) {
     console.warn(`  ${id} KO`, String(err))
   }
 }
 
 console.log(
-  `\nTerminé : ${kept} nouveaux, ${cached} déjà en cache, ${skippedPatch} hors patch/queue. → ${RAW_DIR}`,
+  `\nTerminé : ${kept} nouveaux, ${cached} déjà en cache, ${skipped} hors patch/queue. → ${RAW_DIR}`,
 )
-console.log('Puis : npm run bench:coach')
+console.log('Puis : npm run topup  (ciblé) puis npm run builds')

@@ -16,6 +16,7 @@
     "assets": "node scripts/generate-assets.mjs",
     "staticdata": "vite-node scripts/fetch-staticdata.ts",
     "harvest": "vite-node scripts/harvest-matches.ts",
+    "topup": "vite-node scripts/topup-matches.ts",
     "builds": "vite-node scripts/build-skeletons.ts",
     "bench:coach": "vite-node scripts/bench-coach.ts",
     "freeze-scenario": "vite-node scripts/freeze-scenario.ts",

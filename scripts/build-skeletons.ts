@@ -1,111 +1,41 @@
-// Squelette de build (phase A4.3). Agrège les achats réels des parties
-// Challenger moissonnées (bench/raw/) en, par champion + rôle, la liste des
-// items « cœur » avec taux de pick et position d'achat moyenne.
+// Squelette de build (phase A4.3). Agrège les achats réels des parties hi-elo
+// moissonnées (bench/raw/) en, par champion + rôle, la liste des items « cœur »
+// avec taux de pick et position d'achat moyenne.
 //
-// Repli N-1 : un couple champion+rôle trop peu vu sur le patch courant est
-// complété avec les parties du patch précédent (marqué `patchSpan`).
+// - Repli N-1 : couple trop peu vu sur le patch courant → complété avec le
+//   patch précédent (marqué `patchSpan`). Jamais prioritaire.
+// - Repli « tous rôles » : champion dont aucun rôle ne qualifie → entrée poolée
+//   `roleAgnostic`.
+// - Rapport de couverture : couples réels sous TARGET_GAMES (défaut 50).
 //
-// Usage : npm run builds  [minGames=6] [coreMinPickRate=0.30] [situationalMin=0.12]
-// Sortie : resources/builds.json  (committé — repli offline du client)
+// Usage : npm run builds  [minGames=5] [coreMinPickRate=0.30] [situationalMin=0.12]
+// Sortie : resources/builds.json (+ bench/coverage.json)
 
-import { writeFileSync } from 'node:fs'
+import { appendFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { RAW_DIR, ROOT, loadStaticData, previousPatch, rawMatchIds, readRaw } from './lib/local'
-import { patchOf, type MatchDto, type TimelineDto, type TimelineEvent } from '../src/shared/engine/replay'
-import { normalizeBuildRole, type BuildBookFile, type BuildItem, type ChampionBuild, type RoleBuild } from '../src/shared/build-types'
+import { aggregate, underTarget, type Acc } from './lib/aggregate'
+import { type BuildBookFile, type BuildItem, type BuildRole, type ChampionBuild, type RoleBuild } from '../src/shared/build-types'
 
-// Défaut aligné sur `BUILD_MIN_GAMES` du moteur (build-prior.ts) : émettre une
-// entrée que le moteur ignorerait ne sert à rien.
 const minGames = Number(process.argv[2] ?? 5)
 const coreMin = Number(process.argv[3] ?? 0.3)
 const sitMin = Number(process.argv[4] ?? 0.12)
+const TARGET = Number(process.env.HARVEST_TARGET ?? 50)
 
 const { data: sd, patch } = loadStaticData()
 const prevPatch = previousPatch(patch)
+const allowed = new Set([patch, ...(prevPatch ? [prevPatch] : [])])
 const ids = rawMatchIds()
 if (ids.length === 0) {
   console.error(`Aucune partie dans ${RAW_DIR}. Lance d'abord : npm run harvest`)
   process.exit(1)
 }
 
-const isLegendary = (id: number): boolean => {
-  const it = sd.getItem(id)
-  return !!it && id < 200000 && it.isFinal && !it.isBoots && !it.isConsumable && !it.isTrinket && it.goldTotal >= 2000
-}
-const isBoots = (id: number): boolean => {
-  const it = sd.getItem(id)
-  return !!it && it.isFinal && it.isBoots && !it.isConsumable
-}
+const { byPatch, matchesByPatch } = aggregate(ids, readRaw, sd, allowed)
+const curMap = byPatch.get(patch) ?? new Map<string, Acc>()
+const prevMap = (prevPatch && byPatch.get(prevPatch)) || new Map<string, Acc>()
 
-interface Acc {
-  games: number
-  legend: Map<number, { count: number; slotSum: number }>
-  boots: Map<number, number>
-}
-/** patch → (`champion|ROLE` → Acc). */
-const byPatch = new Map<string, Map<string, Acc>>()
-const accFor = (p: string, key: string): Acc => {
-  let m = byPatch.get(p)
-  if (!m) {
-    m = new Map()
-    byPatch.set(p, m)
-  }
-  let v = m.get(key)
-  if (!v) {
-    v = { games: 0, legend: new Map(), boots: new Map() }
-    m.set(key, v)
-  }
-  return v
-}
-
-const matchesByPatch = new Map<string, number>()
-
-for (const id of ids) {
-  let match: MatchDto
-  let timeline: TimelineDto
-  try {
-    match = readRaw<MatchDto>(id, 'match')
-    timeline = readRaw<TimelineDto>(id, 'timeline')
-  } catch {
-    continue
-  }
-  const mp = patchOf(match.info.gameVersion)
-  if (mp !== patch && mp !== prevPatch) continue
-  if ((match.info.mapId ?? 11) !== 11) continue
-  matchesByPatch.set(mp, (matchesByPatch.get(mp) ?? 0) + 1)
-
-  const events: TimelineEvent[] = timeline.info.frames.flatMap((f) => f.events ?? [])
-  const buysByPid = new Map<number, number[]>()
-  for (const e of events) {
-    if (e.type !== 'ITEM_PURCHASED') continue
-    const pe = e as { participantId: number; itemId: number }
-    const arr = buysByPid.get(pe.participantId) ?? []
-    arr.push(pe.itemId)
-    buysByPid.set(pe.participantId, arr)
-  }
-
-  for (const p of match.info.participants) {
-    const role = normalizeBuildRole(p.teamPosition)
-    if (!role) continue
-    const legendaryOrder: number[] = []
-    let bootsId: number | null = null
-    for (const itemId of buysByPid.get(p.participantId) ?? []) {
-      if (isLegendary(itemId) && !legendaryOrder.includes(itemId)) legendaryOrder.push(itemId)
-      else if (bootsId === null && isBoots(itemId)) bootsId = itemId
-    }
-    if (legendaryOrder.length === 0 && bootsId === null) continue
-
-    const a = accFor(mp, `${p.championName}|${role}`)
-    a.games += 1
-    legendaryOrder.forEach((itemId, i) => {
-      const cur = a.legend.get(itemId) ?? { count: 0, slotSum: 0 }
-      cur.count += 1
-      cur.slotSum += i + 1
-      a.legend.set(itemId, cur)
-    })
-    if (bootsId !== null) a.boots.set(bootsId, (a.boots.get(bootsId) ?? 0) + 1)
-  }
-}
+const round = (v: number, d: number): number => Number(v.toFixed(d))
 
 /** Fusionne `extra` dans une copie de `base` (ids déjà filtrés au catalogue courant). */
 function merge(base: Acc | undefined, extra: Acc | undefined): Acc {
@@ -123,27 +53,8 @@ function merge(base: Acc | undefined, extra: Acc | undefined): Acc {
   return acc
 }
 
-const round = (v: number, d: number): number => Number(v.toFixed(d))
-const curMap = byPatch.get(patch) ?? new Map<string, Acc>()
-const prevMap = (prevPatch && byPatch.get(prevPatch)) || new Map<string, Acc>()
-const allKeys = new Set([...curMap.keys(), ...prevMap.keys()])
-
-const champs = new Map<string, ChampionBuild>()
-let entryCount = 0
-let blendedCount = 0
-
-for (const key of [...allKeys].sort()) {
-  const cur = curMap.get(key)
-  let acc = cur
-  let patchSpan: string | undefined
-  if ((!cur || cur.games < minGames) && prevPatch && prevMap.has(key)) {
-    acc = merge(cur, prevMap.get(key))
-    patchSpan = `${prevPatch}→${patch}`
-  }
-  if (!acc || acc.games < minGames) continue
+function toRoleBuild(role: BuildRole, acc: Acc): RoleBuild | null {
   const games = acc.games
-
-  const [slug, roleRaw] = key.split('|')
   const legend: BuildItem[] = [...acc.legend.entries()]
     .map(([id, s]) => ({ id, pickRate: round(s.count / games, 3), avgSlot: round(s.slotSum / s.count, 2) }))
     .sort((x, y) => y.pickRate - x.pickRate)
@@ -154,9 +65,31 @@ for (const key of [...allKeys].sort()) {
     .filter((x) => x.pickRate >= sitMin)
     .sort((x, y) => y.pickRate - x.pickRate)
     .slice(0, 3)
-  if (core.length === 0 && boots.length === 0) continue
+  if (core.length === 0 && boots.length === 0) return null
+  return { role, games, boots, core, situational }
+}
 
-  const rb: RoleBuild = { role: roleRaw as RoleBuild['role'], games, boots, core, situational }
+const allKeys = new Set([...curMap.keys(), ...prevMap.keys()])
+const champs = new Map<string, ChampionBuild>()
+let entryCount = 0
+let blendedCount = 0
+let agnosticCount = 0
+
+// ── Entrées par rôle ──────────────────────────────────────────────────────
+const qualifiedSlugRoles = new Set<string>()
+for (const key of [...allKeys].sort()) {
+  const [slug, roleRaw] = key.split('|')
+  const role = roleRaw as BuildRole
+  const cur = curMap.get(key)
+  let acc = cur
+  let patchSpan: string | undefined
+  if ((!cur || cur.games < minGames) && prevMap.has(key)) {
+    acc = merge(cur, prevMap.get(key))
+    patchSpan = `${prevPatch}→${patch}`
+  }
+  if (!acc || acc.games < minGames) continue
+  const rb = toRoleBuild(role, acc)
+  if (!rb) continue
   if (patchSpan) {
     rb.patchSpan = patchSpan
     blendedCount += 1
@@ -165,6 +98,35 @@ for (const key of [...allKeys].sort()) {
   cb.roles.push(rb)
   champs.set(slug, cb)
   entryCount += 1
+  qualifiedSlugRoles.add(slug)
+}
+
+// ── Repli « tous rôles » pour les champions sans aucune entrée ─────────────
+const slugsSeen = new Set([...allKeys].map((k) => k.split('|')[0]))
+for (const slug of slugsSeen) {
+  if (qualifiedSlugRoles.has(slug)) continue
+  // pool tous rôles, courant puis N-1
+  let pooled: Acc | undefined
+  let dominant: { role: BuildRole; games: number } | null = null
+  let usedPrev = false
+  for (const [map, isPrev] of [[curMap, false], [prevMap, true]] as const) {
+    for (const [key, acc] of map) {
+      const [s, roleRaw] = key.split('|')
+      if (s !== slug) continue
+      pooled = merge(pooled, acc)
+      if (isPrev) usedPrev = true
+      if (!dominant || acc.games > dominant.games) dominant = { role: roleRaw as BuildRole, games: acc.games }
+    }
+    if (pooled && pooled.games >= minGames) break
+  }
+  if (!pooled || pooled.games < minGames || !dominant) continue
+  const rb = toRoleBuild(dominant.role, pooled)
+  if (!rb) continue
+  rb.roleAgnostic = true
+  if (usedPrev) rb.patchSpan = `${prevPatch}→${patch}`
+  champs.set(slug, { slug, roles: [rb] })
+  entryCount += 1
+  agnosticCount += 1
 }
 
 const totalMatches = [...matchesByPatch.values()].reduce((a, b) => a + b, 0)
@@ -175,29 +137,34 @@ const out: BuildBookFile = {
   params: { minGames, coreMinPickRate: coreMin, situationalMinPickRate: sitMin },
   builds: [...champs.values()].sort((x, y) => x.slug.localeCompare(y.slug)),
 }
+writeFileSync(resolve(ROOT, 'resources/builds.json'), JSON.stringify(out, null, 2) + '\n')
 
-const dest = resolve(ROOT, 'resources/builds.json')
-writeFileSync(dest, JSON.stringify(out, null, 2) + '\n')
-
-console.log(
-  `Parties : ${JSON.stringify(Object.fromEntries(matchesByPatch))} (courant ${patch}` +
-    `${prevPatch ? `, repli ${prevPatch}` : ''})`,
-)
-console.log(
-  `${entryCount} couples champion+rôle retenus (≥ ${minGames} parties, dont ${blendedCount} complétés N-1) sur ${allKeys.size} vus`,
-)
-const byRole = new Map<string, number>()
-for (const cb of out.builds) for (const rb of cb.roles) byRole.set(rb.role, (byRole.get(rb.role) ?? 0) + 1)
-console.log('  par rôle :', JSON.stringify(Object.fromEntries([...byRole.entries()].sort())))
-
-const nameOf = (id: number): string => sd.getItem(id)?.name ?? String(id)
-for (const slug of ['Nasus', 'Kaisa', 'Jinx', 'Ahri']) {
-  const cb = out.builds.find((c) => c.slug.toLowerCase() === slug.toLowerCase())
-  if (!cb) continue
-  for (const rb of cb.roles) {
-    const core = rb.core.map((c) => `${nameOf(c.id)} (${Math.round(c.pickRate * 100)}% · s${c.avgSlot})`).join(', ')
-    console.log(`  ${cb.slug} ${rb.role} [${rb.games}${rb.patchSpan ? ' ' + rb.patchSpan : ''}] : ${core || '—'}`)
-  }
+// ── Rapport de couverture ────────────────────────────────────────────────
+const incomplete = underTarget(byPatch, patch, TARGET, 3)
+const complete = [...curMap.values()].filter((a) => a.games >= TARGET).length
+const coverage = {
+  patch,
+  target: TARGET,
+  generatedAt: out.generatedAt,
+  seenChampRoles: curMap.size,
+  atTarget: complete,
+  incomplete: incomplete.map((x) => ({ champRole: x.key, games: x.games })),
 }
+writeFileSync(resolve(ROOT, 'bench/coverage.json'), JSON.stringify(coverage, null, 2) + '\n')
 
-console.log(`\n→ ${dest}`)
+const lines = [
+  `Parties : ${JSON.stringify(Object.fromEntries(matchesByPatch))} (courant ${patch}${prevPatch ? `, repli ${prevPatch}` : ''})`,
+  `${entryCount} entrées (${blendedCount} complétées N-1, ${agnosticCount} tous-rôles) — ${curMap.size} couples champion+rôle vus`,
+  `Couverture ≥ ${TARGET} parties : ${complete}/${curMap.size} couples · ${incomplete.length} réels sous le seuil`,
+]
+console.log(lines.join('\n'))
+if (incomplete.length) {
+  console.log('  incomplets : ' + incomplete.slice(0, 30).map((x) => `${x.key}(${x.games})`).join(', ') + (incomplete.length > 30 ? ' …' : ''))
+}
+if (process.env.GITHUB_STEP_SUMMARY) {
+  appendFileSync(
+    process.env.GITHUB_STEP_SUMMARY,
+    ['## Squelette de build', ...lines.map((l) => `- ${l}`), '', '```', incomplete.map((x) => `${x.key}  ${x.games}`).join('\n'), '```', ''].join('\n'),
+  )
+}
+console.log(`\n→ resources/builds.json  ·  bench/coverage.json`)

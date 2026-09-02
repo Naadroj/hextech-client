@@ -1,78 +1,126 @@
 # Régénère le squelette de build (phase A4.3) et le publie en asset de Release.
 # Le client télécharge ce fichier au démarrage — voir src/main/engine/build-book.ts.
 #
-# Repo : github.com/Naadroj/hextech-client  (Actions doit être activé).
+# Stratégie couverture (objectif : 50 parties / couple champion+rôle réel) :
+#   - 3 régions moissonnées **en parallèle** (buckets de rate-limit distincts) ;
+#   - `bench/raw/` mis en cache **par patch + région** → le corpus grossit à
+#     chaque run ; nouveau patch = cache neuf (pas de données N-1 prioritaires) ;
+#   - `npm run topup` : moisson ciblée des couples encore sous le seuil, via les
+#     joueurs déjà connus pour les jouer.
 #
-# Prérequis :
-#   - Secret de dépôt `RIOT_API_KEY` = une *Personal API Key* Riot (ne pas
-#     utiliser une clé de dev, elle expire en 24 h et le job casserait).
-#   - Ce dépôt doit être celui référencé par BUILD_BOOK_URL (build-book.ts) et
-#     `publish:` (electron-builder.yml).
+# Prérequis : secret `RIOT_API_KEY` = une *Personal API Key* Riot (pas une clé
+# de dev, elle expire en 24 h).
 name: build-book
 
 on:
   schedule:
-    - cron: '0 6 * * 1' # lundi 06:00 UTC — le méta est stable sur un patch
+    - cron: '0 4 * * 1' # lundi 04:00 UTC
   workflow_dispatch:
     inputs:
       players:
-        description: 'Joueurs Challenger par région'
-        default: '30'
+        description: 'Joueurs par tier et par région'
+        default: '60'
       perPlayer:
-        description: 'Parties par joueur'
-        default: '6'
+        description: 'Parties récentes par joueur (1er passage)'
+        default: '12'
+      target:
+        description: 'Parties visées par couple champion+rôle'
+        default: '50'
+      topupBudget:
+        description: 'Plafond de matchs téléchargés au passage ciblé (par région)'
+        default: '2500'
 
 permissions:
-  contents: write # créer / mettre à jour la Release
+  contents: write
 
 concurrency:
   group: build-book
   cancel-in-progress: false
 
+env:
+  HARVEST_TARGET: ${{ github.event.inputs.target || '50' }}
+
 jobs:
-  generate:
+  harvest:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { region: europe, platform: euw1 }
+          - { region: asia, platform: kr }
+          - { region: americas, platform: na1 }
     runs-on: ubuntu-latest
-    timeout-minutes: 180
-    env:
-      # Plus de volume = plus de champions à faible playrate couverts (Volibear…).
-      PLAYERS: ${{ github.event.inputs.players || '45' }}
-      PER_PLAYER: ${{ github.event.inputs.perPlayer || '8' }}
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
+        with: { node-version: '22', cache: 'npm' }
       - run: npm ci
 
-      # Cale le snapshot (donc les ids d'items) sur le dernier patch publié.
       - name: Rafraîchir le catalogue statique
         run: npm run staticdata
 
-      - name: Moissonner EUW
+      - name: Patch courant
+        id: patch
+        run: node -e "console.log('patch='+require('./resources/staticdata/snapshot.json').meta.version.split('.').slice(0,2).join('.'))" >> "$GITHUB_OUTPUT"
+
+      - name: Restaurer le corpus (patch + région)
+        uses: actions/cache/restore@v4
+        with:
+          path: bench/raw
+          key: bench-raw-${{ steps.patch.outputs.patch }}-${{ matrix.region }}-${{ github.run_id }}
+          restore-keys: bench-raw-${{ steps.patch.outputs.patch }}-${{ matrix.region }}-
+
+      - name: Moisson large
         env:
           RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
-          RIOT_PLATFORM: euw1
-          RIOT_REGION: europe
-        run: npm run harvest -- "$PLAYERS" "$PER_PLAYER"
+          RIOT_PLATFORM: ${{ matrix.platform }}
+          RIOT_REGION: ${{ matrix.region }}
+        run: npm run harvest -- "${{ github.event.inputs.players || '60' }}" "${{ github.event.inputs.perPlayer || '12' }}"
 
-      - name: Moissonner KR
+      - name: Moisson ciblée (couverture)
         env:
           RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
-          RIOT_PLATFORM: kr
-          RIOT_REGION: asia
-        run: npm run harvest -- "$PLAYERS" "$PER_PLAYER"
+          RIOT_PLATFORM: ${{ matrix.platform }}
+          RIOT_REGION: ${{ matrix.region }}
+          TOPUP_BUDGET: ${{ github.event.inputs.topupBudget || '2500' }}
+        run: npm run topup
 
-      - name: Moissonner NA
-        env:
-          RIOT_API_KEY: ${{ secrets.RIOT_API_KEY }}
-          RIOT_PLATFORM: na1
-          RIOT_REGION: americas
-        run: npm run harvest -- "$PLAYERS" "$PER_PLAYER"
+      - name: Sauver le corpus
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: bench/raw
+          key: bench-raw-${{ steps.patch.outputs.patch }}-${{ matrix.region }}-${{ github.run_id }}
 
-      - name: Agréger le squelette
+      - name: Artefact région
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-${{ matrix.region }}
+          path: bench/raw
+          retention-days: 2
+
+  aggregate:
+    needs: harvest
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'npm' }
+      - run: npm ci
+      - run: npm run staticdata
+
+      - name: Fusionner les corpus régionaux
+        uses: actions/download-artifact@v4
+        with:
+          pattern: raw-*
+          merge-multiple: true
+          path: bench/raw
+
+      - name: Agréger le squelette + couverture
         run: npm run builds
 
       - name: Publier (asset stable `builds-latest`)
@@ -80,11 +128,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view builds-latest >/dev/null 2>&1 \
-            || gh release create builds-latest \
-                 --title "Squelette de build (dernier patch)" \
+            || gh release create builds-latest --title "Squelette de build (dernier patch)" \
                  --notes "Régénéré automatiquement par le workflow build-book."
-          gh release upload builds-latest resources/builds.json --clobber
+          gh release upload builds-latest resources/builds.json bench/coverage.json --clobber
 
-      - name: Résumé
-        run: |
-          node -e "const b=require('./resources/builds.json');console.log('patch',b.patch,'· couples',b.builds.reduce((s,c)=>s+c.roles.length,0),'· parties',b.sampleGames)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Rapport de couverture
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: bench/coverage.json

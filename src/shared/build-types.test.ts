@@ -66,6 +66,37 @@ describe('indexBuildBook', () => {
   })
 })
 
+describe('repli tous-rôles (roleAgnostic)', () => {
+  const book = indexBuildBook({
+    ...FILE,
+    builds: [
+      {
+        slug: 'Ivern',
+        roles: [
+          {
+            role: 'JUNGLE',
+            games: 9,
+            roleAgnostic: true,
+            boots: [],
+            core: [{ id: 6620, pickRate: 0.7, avgSlot: 1.2 }],
+            situational: [],
+          },
+        ],
+      },
+    ],
+  })
+
+  it('sert l’entrée poolée même quand le rôle demandé ne correspond pas', () => {
+    expect(book.getBuild('Ivern', 'JUNGLE')?.core[0].id).toBe(6620)
+    expect(book.getBuild('Ivern', 'SUPPORT')?.roleAgnostic).toBe(true)
+    expect(book.getBuild('Ivern', 'TOP')?.core[0].id).toBe(6620)
+  })
+
+  it('une entrée par rôle normale ne fait pas de repli inter-rôles', () => {
+    expect(indexBuildBook(FILE).getBuild('Nasus', 'MID')).toBeUndefined()
+  })
+})
+
 describe('EMPTY_BUILD_BOOK', () => {
   it('ne résout jamais rien', () => {
     expect(EMPTY_BUILD_BOOK.getBuild('Nasus', 'TOP')).toBeUndefined()
