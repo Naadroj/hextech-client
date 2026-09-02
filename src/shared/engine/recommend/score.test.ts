@@ -4,6 +4,7 @@ import { representativeTarget } from './target'
 import { contextWeights } from './weights'
 import { assessGame } from '../context'
 import { makeStaticData, makeLiveGame } from '../context/fixtures'
+import type { NormalizedItem } from '../../staticdata-types'
 
 const sd = makeStaticData()
 const item = (id: number) => sd.getItem(id)!
@@ -72,5 +73,36 @@ describe('scoreItem — comparaison marginale', () => {
     expect(s.goldTotal).toBe(3450)
     expect(s.affordableNow).toBe(false)
     expect(s.goldShort).toBe(2450)
+  })
+
+  it('pénalise un stat-stick de PV brut (Warmog) en 1er/2e item, plus au 3e', () => {
+    const warmog = {
+      id: 3083,
+      name: "Warmog's Armor",
+      description: '',
+      plaintext: '',
+      tags: [],
+      goldBase: 0,
+      goldTotal: 3000,
+      goldSell: 0,
+      purchasable: true,
+      onSummonersRift: true,
+      depth: 3,
+      from: [],
+      into: [],
+      isFinal: true,
+      isBoots: false,
+      isConsumable: false,
+      isTrinket: false,
+      stats: { health: 1000, healthRegen: 100 },
+      hasActive: false,
+    } as NormalizedItem
+    const at = (n: number) => scoreItem(warmog, { ...a, self: { ...a.self, completedItemCount: n } }, target, weights, sd)
+    expect(at(0).breakdown.timing).toBeLessThanOrEqual(-0.5)
+    expect(at(1).breakdown.timing).toBeLessThan(0)
+    expect(at(3).breakdown.timing).toBe(0)
+    expect(at(3).score).toBeGreaterThan(at(0).score)
+    // un item de résistance équivalent en or n'est PAS pénalisé
+    expect(scoreItem(item(3143), a, target, weights, sd).breakdown.timing).toBe(0) // Randuin (armor + active)
   })
 })

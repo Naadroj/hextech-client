@@ -14,7 +14,9 @@ import { RAW_DIR, ROOT, loadStaticData, previousPatch, rawMatchIds, readRaw } fr
 import { patchOf, type MatchDto, type TimelineDto, type TimelineEvent } from '../src/shared/engine/replay'
 import { normalizeBuildRole, type BuildBookFile, type BuildItem, type ChampionBuild, type RoleBuild } from '../src/shared/build-types'
 
-const minGames = Number(process.argv[2] ?? 6)
+// Défaut aligné sur `BUILD_MIN_GAMES` du moteur (build-prior.ts) : émettre une
+// entrée que le moteur ignorerait ne sert à rien.
+const minGames = Number(process.argv[2] ?? 5)
 const coreMin = Number(process.argv[3] ?? 0.3)
 const sitMin = Number(process.argv[4] ?? 0.12)
 

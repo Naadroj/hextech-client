@@ -20,6 +20,11 @@ export interface ScoreBreakdown {
    * hi-elo du champion + rôle. Absent si aucun livre de builds n'est fourni.
    */
   buildPrior?: number
+  /**
+   * Pénalité de timing (≤ 0) — « mauvais moment pour cet achat », ex. un
+   * stat-stick de PV brut (Warmog, Heartsteel) en 1er/2e item hors squelette.
+   */
+  timing?: number
 }
 
 export type ItemKind = 'legendary' | 'component' | 'boots'

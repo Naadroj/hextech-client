@@ -34,8 +34,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      PLAYERS: ${{ github.event.inputs.players || '30' }}
-      PER_PLAYER: ${{ github.event.inputs.perPlayer || '6' }}
+      # Plus de volume = plus de champions à faible playrate couverts (Volibear…).
+      PLAYERS: ${{ github.event.inputs.players || '45' }}
+      PER_PLAYER: ${{ github.event.inputs.perPlayer || '8' }}
     steps:
       - uses: actions/checkout@v4
 

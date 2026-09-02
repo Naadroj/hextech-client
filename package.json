@@ -1,6 +1,6 @@
 {
   "name": "hextech-client",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Client compagnon Hextech pour League of Legends (LCU externe, sans injection)",
   "author": "Jordan Momper",
   "license": "MIT",

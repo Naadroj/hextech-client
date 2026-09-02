@@ -146,13 +146,31 @@ export function scoreItem(
   // champion + rôle. Additif — l'heuristique ci-dessus peut toujours dominer.
   const prior = buildPrior(item, a, book, kind).value
 
+  // Pénalité de timing « stat-stick de PV » : un item qui ne pèse au score que
+  // par des PV bruts (aucune résistance, aucun actif, offense et utilité quasi
+  // nulles — Warmog, Heartsteel) est un très mauvais 1er/2e achat. Sans entrée
+  // de squelette, le moteur défautait sinon dessus pour les juggernauts.
+  const rawHpStick =
+    (item.stats.health ?? 0) >= 400 &&
+    (item.stats.armor ?? 0) === 0 &&
+    (item.stats.magicResist ?? 0) === 0 &&
+    !item.hasActive &&
+    offense < 0.12 &&
+    utility <= 0.05
+  const EARLY_STICK_PENALTY = [0.9, 0.5, 0.15]
+  const timing =
+    rawHpStick && prior === 0 && a.self.completedItemCount < EARLY_STICK_PENALTY.length
+      ? -EARLY_STICK_PENALTY[a.self.completedItemCount]
+      : 0
+
   const score =
     weights.offense * offense +
     weights.defense * defense +
     weights.utility * utility +
     weights.costEfficiency * costEfficiency +
     tempo +
-    prior
+    prior +
+    timing
 
   return {
     itemId: item.id,
@@ -162,7 +180,7 @@ export function scoreItem(
     affordableNow: a.self.currentGold >= item.goldTotal,
     goldShort: Math.max(0, item.goldTotal - a.self.currentGold),
     score,
-    breakdown: { offense, defense, utility, costEfficiency, tempo, buildPrior: prior },
+    breakdown: { offense, defense, utility, costEfficiency, tempo, buildPrior: prior, timing },
     reasons: [],
   }
 }
