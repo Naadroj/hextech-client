@@ -53,7 +53,18 @@ export function utilityScore(item: NormalizedItem, a: GameAssessment): number {
   if (t.enemyHealing !== 'none' && RX_GRIEVOUS.test(item.description)) {
     u += t.enemyHealing === 'heavy' ? 1.1 : 0.35
   }
-  if (t.enemyHardCC && RX_QSS.test(item.description)) u += 1.1
+  // QSS / retrait de CC : plus fort si je suis **immobile** et si les sources de
+  // CC dur s'accumulent ; damped au tout 1er item (on ne rush pas un QSS).
+  if (t.enemyHardCC && RX_QSS.test(item.description)) {
+    const immobile = a.self.selfImmobile ? 0.35 : 0
+    const stacked = 0.2 * Math.max(0, Math.min(2, t.enemyHardCcCount - 2))
+    const earlyDamp = a.self.completedItemCount >= 1 ? 1 : 0.6
+    u += 1.1 * (1 + immobile + stacked) * earlyDamp
+  }
+  // Ténacité (bottes) contre du CC dur multiple.
+  if (t.enemyHardCC && (item.stats.tenacity ?? 0) > 0) {
+    u += 0.3 + 0.25 * Math.max(0, Math.min(2, t.enemyHardCcCount - 2)) / 2 + (a.self.selfImmobile ? 0.15 : 0)
+  }
   // Objet « bouée » (stase / lifeline) : bonus **gradué** par la sévérité du burst.
   const isSaveItem =
     (item.hasActive && RX_STASIS.test(item.description)) ||
@@ -77,7 +88,7 @@ export function utilityScore(item: NormalizedItem, a: GameAssessment): number {
 
   if (t.enemyAutoAttackers && AA_PUNISH_IDS.has(item.id)) u += 0.45
 
-  return Math.min(1.6, u)
+  return Math.min(2.2, u)
 }
 
 export function scoreItem(

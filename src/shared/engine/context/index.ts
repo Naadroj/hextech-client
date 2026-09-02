@@ -36,6 +36,13 @@ export function assessGame(live: LiveGameData, staticData: StaticData): GameAsse
   const selfFed = fed.get(selfKey)?.score ?? 0
 
   const selfProfile = staticData.getDamageProfile(selfPlayer.championName) ?? FALLBACK_PROFILE
+  // Immobile = pas de dash/blink fiable : les rôles à mobilité intrinsèque
+  // (assassin, skirmisher, diver) sont mobiles ; marksman/mage/artillerie non.
+  const selfRoles = selfProfile.roles.map((r) => r.toUpperCase())
+  const MOBILE_ROLES = ['ASSASSIN', 'SKIRMISHER', 'DIVER']
+  const selfImmobile =
+    !selfRoles.some((r) => MOBILE_ROLES.includes(r)) &&
+    selfRoles.some((r) => ['MARKSMAN', 'ARTILLERY', 'BATTLEMAGE', 'BURST', 'MAGE', 'ENCHANTER', 'CATCHER'].includes(r))
   const selfBase = staticData.getChampionStatsAtLevel(selfPlayer.championName, selfPlayer.level)
   const cs = selfActive.championStats
   const resourceType = cs.resourceType || 'None'
@@ -60,6 +67,7 @@ export function assessGame(live: LiveGameData, staticData: StaticData): GameAsse
     stats: fromLiveChampionStats(cs),
     baseAttackDamage: selfBase?.attackDamage ?? cs.attackDamage * 0.5,
     baseHealth: selfBase?.health ?? cs.maxHealth * 0.6,
+    selfImmobile,
     resourceType,
     isManaConstrained: manaConstrained,
     fed: selfFed,

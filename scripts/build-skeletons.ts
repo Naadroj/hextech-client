@@ -39,7 +39,12 @@ const round = (v: number, d: number): number => Number(v.toFixed(d))
 
 /** Fusionne `extra` dans une copie de `base` (ids déjà filtrés au catalogue courant). */
 function merge(base: Acc | undefined, extra: Acc | undefined): Acc {
-  const acc: Acc = { games: base?.games ?? 0, legend: new Map(), boots: new Map(base?.boots ?? []) }
+  const acc: Acc = {
+    games: base?.games ?? 0,
+    legend: new Map(),
+    boots: new Map(base?.boots ?? []),
+    starters: new Map(base?.starters ?? []),
+  }
   for (const [id, s] of base?.legend ?? []) acc.legend.set(id, { ...s })
   if (!extra) return acc
   acc.games += extra.games
@@ -50,6 +55,7 @@ function merge(base: Acc | undefined, extra: Acc | undefined): Acc {
     acc.legend.set(id, cur)
   }
   for (const [id, n] of extra.boots) acc.boots.set(id, (acc.boots.get(id) ?? 0) + n)
+  for (const [id, n] of extra.starters) acc.starters.set(id, (acc.starters.get(id) ?? 0) + n)
   return acc
 }
 
@@ -65,8 +71,13 @@ function toRoleBuild(role: BuildRole, acc: Acc): RoleBuild | null {
     .filter((x) => x.pickRate >= sitMin)
     .sort((x, y) => y.pickRate - x.pickRate)
     .slice(0, 3)
+  const starters: BuildItem[] = [...acc.starters.entries()]
+    .map(([id, count]) => ({ id, pickRate: round(count / games, 3), avgSlot: 0 }))
+    .filter((x) => x.pickRate >= 0.15)
+    .sort((x, y) => y.pickRate - x.pickRate)
+    .slice(0, 4)
   if (core.length === 0 && boots.length === 0) return null
-  return { role, games, boots, core, situational }
+  return { role, games, boots, core, situational, ...(starters.length ? { starters } : {}) }
 }
 
 const allKeys = new Set([...curMap.keys(), ...prevMap.keys()])

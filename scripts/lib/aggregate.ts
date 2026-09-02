@@ -11,7 +11,12 @@ export interface Acc {
   games: number
   legend: Map<number, { count: number; slotSum: number }>
   boots: Map<number, number>
+  starters: Map<number, number>
 }
+
+/** Ids à exclure des « objets de départ » (potions, bibelots, élixirs, pierre bleue). */
+const NON_STARTER = new Set([2003, 2010, 2031, 2055, 2138, 2139, 2140, 3340, 3363, 3364])
+const STARTER_MS = 80_000
 
 export interface AggregateResult {
   /** patch → (`champion|ROLE` → Acc). */
@@ -45,21 +50,22 @@ export interface ParsedParticipant {
   role: BuildRole
   legendaryOrder: number[]
   bootsId: number | null
+  starterIds: number[]
 }
 
-/** Extrait, par participant à `teamPosition` connue, l'ordre des légendaires + 1res bottes. */
+/** Extrait, par participant à `teamPosition` connue, l'ordre des légendaires + 1res bottes + départ. */
 export function parseParticipants(
   match: MatchDto,
   timeline: TimelineDto,
   sd: StaticData,
 ): ParsedParticipant[] {
   const events: TimelineEvent[] = timeline.info.frames.flatMap((f) => f.events ?? [])
-  const buysByPid = new Map<number, number[]>()
+  const buysByPid = new Map<number, { id: number; t: number }[]>()
   for (const e of events) {
     if (e.type !== 'ITEM_PURCHASED') continue
-    const pe = e as { participantId: number; itemId: number }
+    const pe = e as { participantId: number; itemId: number; timestamp: number }
     const arr = buysByPid.get(pe.participantId) ?? []
-    arr.push(pe.itemId)
+    arr.push({ id: pe.itemId, t: pe.timestamp })
     buysByPid.set(pe.participantId, arr)
   }
 
@@ -69,12 +75,16 @@ export function parseParticipants(
     if (!role) continue
     const legendaryOrder: number[] = []
     let bootsId: number | null = null
-    for (const itemId of buysByPid.get(p.participantId) ?? []) {
-      if (isLegendary(sd, itemId) && !legendaryOrder.includes(itemId)) legendaryOrder.push(itemId)
-      else if (bootsId === null && isFinalBoots(sd, itemId)) bootsId = itemId
+    const starterIds: number[] = []
+    for (const { id, t } of buysByPid.get(p.participantId) ?? []) {
+      if (isLegendary(sd, id) && !legendaryOrder.includes(id)) legendaryOrder.push(id)
+      else if (bootsId === null && isFinalBoots(sd, id)) bootsId = id
+      if (t < STARTER_MS && !NON_STARTER.has(id) && !starterIds.includes(id) && sd.getItem(id)) {
+        starterIds.push(id)
+      }
     }
     if (legendaryOrder.length === 0 && bootsId === null) continue
-    out.push({ puuid: p.puuid, slug: p.championName, role, legendaryOrder, bootsId })
+    out.push({ puuid: p.puuid, slug: p.championName, role, legendaryOrder, bootsId, starterIds })
   }
   return out
 }
@@ -93,7 +103,7 @@ export function aggregate(
     let m = byPatch.get(p)
     if (!m) byPatch.set(p, (m = new Map()))
     let v = m.get(key)
-    if (!v) m.set(key, (v = { games: 0, legend: new Map(), boots: new Map() }))
+    if (!v) m.set(key, (v = { games: 0, legend: new Map(), boots: new Map(), starters: new Map() }))
     return v
   }
 
@@ -122,6 +132,7 @@ export function aggregate(
         acc.legend.set(itemId, cur)
       })
       if (pp.bootsId !== null) acc.boots.set(pp.bootsId, (acc.boots.get(pp.bootsId) ?? 0) + 1)
+      for (const sid of pp.starterIds) acc.starters.set(sid, (acc.starters.get(sid) ?? 0) + 1)
       if (pp.puuid) {
         let set = puuidsByKey.get(key)
         if (!set) puuidsByKey.set(key, (set = new Set()))

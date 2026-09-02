@@ -96,10 +96,10 @@ export function assessTriggers(deps: TriggerDeps): SituationalTriggers {
     healPoints >= 2.5 ? 'heavy' : healPoints >= 1 ? 'moderate' : 'none'
 
   // ─── CC dur ───
-  const ccCount = threat.enemies.filter((e) =>
+  const enemyHardCcCount = threat.enemies.filter((e) =>
     e.profile.roles.some((r) => CC_ROLES.has(r.toUpperCase())),
   ).length
-  const enemyHardCC = ccCount >= 2
+  const enemyHardCC = enemyHardCcCount >= 2
 
   // ─── Burst de la menace principale (gradué) ───
   const primary = threat.primary
@@ -120,6 +120,7 @@ export function assessTriggers(deps: TriggerDeps): SituationalTriggers {
   return {
     enemyHealing,
     enemyHardCC,
+    enemyHardCcCount,
     burstSeverity,
     enemyBurstPhysical,
     enemyBurstMagic,

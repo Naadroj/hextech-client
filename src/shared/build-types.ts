@@ -67,6 +67,8 @@ export interface RoleBuild {
    * complété avec le patch précédent (ex. `"16.16→16.17"`). Absent = patch pur.
    */
   patchSpan?: string
+  /** Objets de départ les plus fréquents (achetés < 80 s), `pickRate` décroissant. */
+  starters?: BuildItem[]
   /** Bottes les plus fréquentes, `pickRate` décroissant. */
   boots: BuildItem[]
   /** Légendaires du squelette (`pickRate` ≥ seuil core), `pickRate` décroissant. */

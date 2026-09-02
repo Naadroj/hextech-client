@@ -264,6 +264,16 @@ export function makeCoachAdvice(over: Partial<CoachAdvice> = {}): CoachAdvice {
         breakdown: { offense: 0, defense: 0.1, utility: 0.9, costEfficiency: 0, tempo: 0 },
         reasons: ['Menace magique + tenacité contre le CC.'],
       },
+      buildPath: [
+        { itemId: 3031, name: "Lame d'infini", owned: true, slot: 1 },
+        { itemId: 3036, name: 'Salutations de Dominik', owned: false, slot: 2 },
+      ],
+      skeleton: {
+        games: 84,
+        roleAgnostic: false,
+        patchSpan: null,
+        starters: [{ itemId: 1055, name: 'Lame de Doran', pickRate: 0.72 }],
+      },
       context: {
         representativeTargetSlug: 'Syndra',
         threatSummary: '35 % phys / 60 % mag / 5 % vrai · burst 55 %',

@@ -1,5 +1,5 @@
 import type { CoachAdvice } from '@shared/coach-types'
-import type { ItemRecommendation } from '@shared/engine/recommend/types'
+import type { ItemRecommendation, Recommendation, SkeletonInfo } from '@shared/engine/recommend/types'
 import { Frame, Tag } from '../components/hextech'
 import { ItemIcon } from '../components/ItemIcon'
 import { useCoach } from '../lib/useCoach'
@@ -72,6 +72,58 @@ function ItemRow({
   )
 }
 
+function SkeletonBadge({ skeleton }: { skeleton: SkeletonInfo | null }) {
+  if (!skeleton) return <Tag>Reco heuristique · pas de build hi-elo</Tag>
+  const thin = skeleton.games < 40
+  const bits = [`${skeleton.games} parties`]
+  if (thin) bits.push('données fines')
+  if (skeleton.roleAgnostic) bits.push('tous rôles')
+  if (skeleton.patchSpan) bits.push(`patch ${skeleton.patchSpan}`)
+  return <Tag tone={thin ? undefined : 'cyan'}>{`Build hi-elo · ${bits.join(' · ')}`}</Tag>
+}
+
+function BuildPath({ rec, version }: { rec: Recommendation; version: string | null }) {
+  if (rec.buildPath.length === 0 && (!rec.skeleton || rec.skeleton.starters.length === 0)) return null
+  return (
+    <div className="space-y-3">
+      {rec.skeleton && rec.skeleton.starters.length > 0 && (
+        <div>
+          <div className="mb-2 font-display text-[10px] uppercase tracking-hexwide text-gold-700">Départ</div>
+          <div className="flex flex-wrap items-center gap-2">
+            {rec.skeleton.starters.map((s) => (
+              <span key={s.itemId} className="flex items-center gap-1.5 text-sm text-gold-100/90">
+                <ItemIcon itemId={s.itemId} version={version} size={24} title={s.name} />
+                {s.name} <span className="text-parchment">{Math.round(s.pickRate * 100)}%</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {rec.buildPath.length > 0 && (
+        <div>
+          <div className="mb-2 font-display text-[10px] uppercase tracking-hexwide text-gold-700">
+            Cœur de build hi-elo
+          </div>
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
+            {rec.buildPath.map((step, i) => (
+              <span key={step.itemId} className="flex items-center gap-1.5">
+                {i > 0 && <span className="text-gold-700">→</span>}
+                <span
+                  className={`flex items-center gap-1.5 text-sm ${step.owned ? 'text-parchment line-through' : 'text-gold-100'}`}
+                  title={step.owned ? `${step.name} (déjà acheté)` : step.name}
+                >
+                  <ItemIcon itemId={step.itemId} version={version} size={24} title={step.name} />
+                  {step.name}
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function CoachView({ advice }: { advice: CoachAdvice }) {
   const version = useStaticData().summary?.version ?? null
 
@@ -107,7 +159,10 @@ export function CoachView({ advice }: { advice: CoachAdvice }) {
         </div>
       </Frame>
 
-      <Frame title="Prochain item conseillé">
+      <Frame
+        title="Prochain item conseillé"
+        headerRight={rec?.primary ? <SkeletonBadge skeleton={rec.skeleton} /> : undefined}
+      >
         {rec?.primary ? (
           <div className="space-y-5">
             <ItemRow item={rec.primary} primary version={version} />
@@ -124,6 +179,8 @@ export function CoachView({ advice }: { advice: CoachAdvice }) {
                 </div>
               </div>
             )}
+
+            <BuildPath rec={rec} version={version} />
 
             {rec.boots && (
               <div>

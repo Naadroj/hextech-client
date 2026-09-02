@@ -76,10 +76,37 @@ export function recommend(a0: GameAssessment, sd: StaticData, book?: BuildBook):
     if (bootPick) bootPick.reasons = reasonsForBoots(bootPick, a)
   }
 
+  // Chemin de build hi-elo complet (au-delà du prochain item) + méta squelette.
+  const rb = book?.getBuild(a.self.slug, a.self.role)
+  const ownedIds = new Set(a.self.items)
+  const buildPath = (rb?.core ?? [])
+    .slice()
+    .sort((x, y) => x.avgSlot - y.avgSlot)
+    .map((c) => ({
+      itemId: c.id,
+      name: sd.getItem(c.id)?.name ?? String(c.id),
+      owned: ownedIds.has(c.id),
+      slot: c.avgSlot,
+    }))
+  const skeleton: Recommendation['skeleton'] = rb
+    ? {
+        games: rb.games,
+        roleAgnostic: !!rb.roleAgnostic,
+        patchSpan: rb.patchSpan ?? null,
+        starters: (rb.starters ?? []).map((s) => ({
+          itemId: s.id,
+          name: sd.getItem(s.id)?.name ?? String(s.id),
+          pickRate: s.pickRate,
+        })),
+      }
+    : null
+
   return {
     primary,
     alternatives,
     boots: bootPick,
+    buildPath,
+    skeleton,
     context: {
       representativeTargetSlug: target.slug,
       threatSummary: `${pct(a.threat.physical)} phys / ${pct(a.threat.magic)} mag / ${pct(

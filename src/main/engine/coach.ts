@@ -13,15 +13,17 @@ import { recommend, type ItemRecommendation, type Recommendation } from '../../s
  * bottes, etc.) — on ne touche qu'au libellé remonté à l'UI.
  */
 function localizeNames(rec: Recommendation, sd: StaticData): Recommendation {
-  const fix = <T extends ItemRecommendation>(r: T): T => {
-    const loc = sd.getItem(r.itemId)?.nameLocalized
-    return loc ? { ...r, name: loc } : r
-  }
+  const loc = (itemId: number, fallback: string): string => sd.getItem(itemId)?.nameLocalized ?? fallback
+  const fix = <T extends ItemRecommendation>(r: T): T => ({ ...r, name: loc(r.itemId, r.name) })
   return {
     ...rec,
     primary: rec.primary ? fix(rec.primary) : null,
     alternatives: rec.alternatives.map(fix),
     boots: rec.boots ? fix(rec.boots) : null,
+    buildPath: rec.buildPath.map((s) => ({ ...s, name: loc(s.itemId, s.name) })),
+    skeleton: rec.skeleton
+      ? { ...rec.skeleton, starters: rec.skeleton.starters.map((s) => ({ ...s, name: loc(s.itemId, s.name) })) }
+      : null,
   }
 }
 

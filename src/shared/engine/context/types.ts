@@ -68,6 +68,11 @@ export interface SelfAssessment {
    * (Shaco, Kayle…) : une fois un 1er item AD posé, on arrête de conseiller de l'AP.
    */
   committedAxis?: 'physical' | 'magic'
+  /**
+   * `true` si le champion n'a pas d'échappatoire fiable (dash / blink /
+   * intangibilité). Rend le CC dur ennemi bien plus dangereux → poids QSS accru.
+   */
+  selfImmobile: boolean
   /** Stats effectives réelles, lues dans `activePlayer.championStats`. */
   stats: StatBlock
   /** AD de base au niveau (sans items) — pour les ratios « % bonus AD ». */
@@ -88,6 +93,8 @@ export interface SituationalTriggers {
   enemyHealing: HealingLevel
   /** ≥ 2 ennemis à CC dur fiable → QSS / tenacité. */
   enemyHardCC: boolean
+  /** Nombre d'ennemis à CC dur fiable (module la force du signal QSS/ténacité). */
+  enemyHardCcCount: number
   /**
    * Létalité **graduée** du burst de la menace principale envers *moi*
    * maintenant (0 = négligeable, 1 = risque de one-shot). Combine avance de la

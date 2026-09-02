@@ -45,6 +45,26 @@ export interface ItemRecommendation {
   reasons: string[]
 }
 
+/** Une étape du chemin de build hi-elo (squelette), avec l'état de possession. */
+export interface BuildPathStep {
+  itemId: number
+  name: string
+  /** `true` si le joueur possède déjà cet item (légendaire fini). */
+  owned: boolean
+  /** Position d'achat typique (`avgSlot` du squelette). */
+  slot: number
+}
+
+/** Métadonnées du squelette hi-elo utilisé (ou `null` si reco purement heuristique). */
+export interface SkeletonInfo {
+  games: number
+  roleAgnostic: boolean
+  /** `"16.16→16.17"` si complété avec le patch précédent. */
+  patchSpan: string | null
+  /** Objets de départ conseillés `{ itemId, name, pickRate }`. */
+  starters: { itemId: number; name: string; pickRate: number }[]
+}
+
 export interface Recommendation {
   /** Meilleur item légendaire à acheter ensuite (`null` si aucun candidat). */
   primary: ItemRecommendation | null
@@ -52,6 +72,10 @@ export interface Recommendation {
   alternatives: ItemRecommendation[]
   /** Meilleures bottes si le joueur n'en a pas encore (`null` sinon). */
   boots: ItemRecommendation | null
+  /** Séquence de cœur de build hi-elo (ordonnée), items possédés marqués. `[]` si pas de squelette. */
+  buildPath: BuildPathStep[]
+  /** Infos sur le squelette utilisé, ou `null` si reco heuristique pure. */
+  skeleton: SkeletonInfo | null
   context: {
     representativeTargetSlug: string | null
     threatSummary: string
