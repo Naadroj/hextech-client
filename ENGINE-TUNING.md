@@ -17,6 +17,17 @@ Chaque changement doit garder les tests verts (`npx vitest run src/shared/engine
 | `utilitaire` (ENCHANTER, mage-support) | 0.10 | 0.22 | **0.58** | 0.10 | support faible = **structurel** (pas de notion d'item d'enchanteur), pas un poids |
 | `combattant` (JUGGERNAUT/DIVER/FIGHTER) | **0.40** | 0.35 | 0.15 | 0.10 | **top faible** → ↑offense (0.40→0.48), ↓util |
 
+### `score.ts utilityScore` — QSS / retrait de CC (v0.1.5)
+
+| élément | valeur | rôle |
+| --- | --- | --- |
+| base QSS (`enemyHardCC` + `RX_QSS`) | **1.1** | × `(1 + immobile + stacked)` × `earlyDamp` |
+| `immobile` | **0.35** si `self.selfImmobile` | marksman/mage/artillerie sans dash → CC bien plus létal |
+| `stacked` | **0.2 × min(2, hardCcCount − 2)** | +CC dur au-delà de 2 → QSS plus urgent |
+| `earlyDamp` | **0.6** au 1er item, sinon 1 | on ne rush pas un QSS en item 1 |
+| ténacité bottes | **0.3 + 0.25·… + 0.15** (immobile) si `enemyHardCC` | favorise Bottes de Mercure vs CC multiple |
+| plafond `utilityScore` | **2.0** (était 1.6) | laisse le QSS peser vs une compo full lock |
+
 ### `contextWeights()` — modulations (ajouts avant renormalisation)
 
 | trigger | effet | levier `too-defensive` |
