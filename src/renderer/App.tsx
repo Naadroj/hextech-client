@@ -6,6 +6,7 @@ import { TopNav, type NavItem } from './components/layout/TopNav'
 import { SocialDock } from './components/layout/SocialDock'
 import { StatusBadge } from './components/layout/StatusBadge'
 import { ReadyCheckModal } from './components/ReadyCheckModal'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { KitchenSink } from './views/KitchenSink'
 import { Home } from './views/Home'
 import { Lobby } from './views/Lobby'
@@ -44,23 +45,29 @@ export default function App() {
       />
       <div className="flex min-h-0 flex-1">
         <main className="flex-1 overflow-y-auto p-8">
-          {active === 'home' && <Home connection={connection} />}
-          {active === 'lobby' && <Lobby connection={connection} />}
-          {active === 'champ' && <ChampSelect connection={connection} />}
-          {active === 'coach' && <Coach />}
-          {active === 'settings' && <Settings />}
-          {active === 'kit' && <KitchenSink />}
-          {!IMPLEMENTED.has(active) && (
-            <div className="hx-frame max-w-xl">
-              <h2 className="text-lg">{activeLabel}</h2>
-              <div className="hx-divider" />
-              <p className="text-parchment">Vue à implémenter dans une phase ultérieure.</p>
-            </div>
-          )}
+          <ErrorBoundary key={active} label={activeLabel || active}>
+            {active === 'home' && <Home connection={connection} />}
+            {active === 'lobby' && <Lobby connection={connection} />}
+            {active === 'champ' && <ChampSelect connection={connection} />}
+            {active === 'coach' && <Coach />}
+            {active === 'settings' && <Settings />}
+            {active === 'kit' && <KitchenSink />}
+            {!IMPLEMENTED.has(active) && (
+              <div className="hx-frame max-w-xl">
+                <h2 className="text-lg">{activeLabel}</h2>
+                <div className="hx-divider" />
+                <p className="text-parchment">Vue à implémenter dans une phase ultérieure.</p>
+              </div>
+            )}
+          </ErrorBoundary>
         </main>
-        <SocialDock />
+        <ErrorBoundary label="amis">
+          <SocialDock />
+        </ErrorBoundary>
       </div>
-      <ReadyCheckModal />
+      <ErrorBoundary label="ready check">
+        <ReadyCheckModal />
+      </ErrorBoundary>
     </AppFrame>
   )
 }
