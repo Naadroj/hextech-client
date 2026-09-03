@@ -17,23 +17,67 @@ import {
  * donc pas passer devant un jeu en **plein écran exclusif** : League doit être
  * en mode « Sans bordure » (son défaut).
  *
- * Click-through : la fenêtre ignore la souris par défaut (`forward: true` pour
- * continuer à recevoir les `mousemove` côté renderer) ; le renderer rappelle
- * `setInteractive(true)` quand le curseur entre sur la carte, ce qui rend la
- * poignée de déplacement cliquable.
+ * Visibilité : la fenêtre reste créée tant que l'overlay est activé, mais n'est
+ * **affichée que quand la partie League est au premier plan** (`getForeground
+ * ProcessName`). Alt-Tab vers une autre application → la fenêtre se masque.
  *
  * Événement : `state` (`OverlayState`).
  */
 
+/** Nom de process de la fenêtre de jeu (in-game), pas du client. */
+const GAME_PROCESS_NAME = 'League of Legends'
+/** Cadence de suivi du curseur pendant un déplacement (~60 Hz). */
+const DRAG_TICK_MS = 16
+/** Filet de sécurité : un drag ne dure jamais plus longtemps que ça. */
+const DRAG_MAX_MS = 30_000
+/**
+ * Cadence du test « le jeu est-il au premier plan ? ». Chaque tick lance un
+ * PowerShell : on ne sonde **que pendant une partie** (voir `setGameActive`).
+ */
+const FOREGROUND_TICK_MS = 1500
+
 export interface OverlayDeps {
   config: ConfigStore
-  /** `true` en développement (charge l'URL du serveur Vite). */
+  /** `true` en développement (pas de gate premier-plan : overlay toujours visible). */
   isDev: boolean
-  /** URL du serveur de dev renderer (`ELECTRON_RENDERER_URL`). */
   rendererUrl?: string
-  /** Racine des bundles renderer buildés (`out/renderer`). */
   rendererDir: string
   preloadPath: string
+  /** Injectable pour les tests ; par défaut `getForegroundProcessName` de system.ts. */
+  getForegroundProcessName?: () => Promise<string | null>
+}
+
+/** Nouvelle position pour un tick de drag — **la taille est fixée**, jamais recalculée. */
+export function dragBoundsFor(
+  cursor: { x: number; y: number },
+  offset: { x: number; y: number },
+  size: { width: number; height: number },
+): OverlayBounds {
+  return {
+    x: Math.round(cursor.x - offset.x),
+    y: Math.round(cursor.y - offset.y),
+    width: Math.round(size.width),
+    height: Math.round(size.height),
+  }
+}
+
+/**
+ * L'overlay doit-il être visible ? Il faut **une partie en cours** *et* que la
+ * fenêtre de jeu soit au premier plan (Alt-Tab → masqué). On garde la fenêtre
+ * visible pendant un déplacement, et en dev pour pouvoir la travailler.
+ */
+export function overlayShouldShow(o: {
+  enabled: boolean
+  isDev: boolean
+  dragging: boolean
+  gameActive: boolean
+  gameForeground: boolean
+  foregroundUnavailable: boolean
+}): boolean {
+  if (!o.enabled) return false
+  if (o.isDev || o.dragging) return true
+  if (!o.gameActive) return false
+  return o.gameForeground || o.foregroundUnavailable
 }
 
 const clampToDisplay = (b: OverlayBounds): OverlayBounds => {
@@ -59,20 +103,27 @@ function defaultBounds(): OverlayBounds {
   }
 }
 
-/** Cadence de suivi du curseur pendant un déplacement (~60 Hz). */
-const DRAG_TICK_MS = 16
-/** Filet de sécurité : un drag ne dure jamais plus longtemps que ça. */
-const DRAG_MAX_MS = 30_000
-
 export class Overlay extends EventEmitter {
   private win: BrowserWindow | null = null
   private disposed = false
   private dragTimer: NodeJS.Timeout | null = null
   private dragStopTimer: NodeJS.Timeout | null = null
   private dragOffset = { x: 0, y: 0 }
+  private dragSize = { width: OVERLAY_DEFAULT_SIZE.width, height: OVERLAY_DEFAULT_SIZE.height }
+  private dragging = false
+
+  private fgTimer: NodeJS.Timeout | null = null
+  private gameActive = false
+  private gameForeground = false
+  private fgFailures = 0
+
+  private readonly getForeground: () => Promise<string | null>
 
   constructor(private readonly deps: OverlayDeps) {
     super()
+    this.getForeground =
+      deps.getForegroundProcessName ??
+      (() => Promise.resolve(null))
   }
 
   get state(): OverlayState {
@@ -82,7 +133,6 @@ export class Overlay extends EventEmitter {
     }
   }
 
-  /** Restaure l'état persisté au démarrage (sans forcer l'affichage). */
   restore(): void {
     if (this.deps.config.get('overlayEnabled')) this.setEnabled(true)
   }
@@ -90,18 +140,36 @@ export class Overlay extends EventEmitter {
   setEnabled(enabled: boolean): OverlayState {
     if (this.disposed) return this.state
     this.deps.config.set('overlayEnabled', enabled)
-    if (enabled) this.ensureWindow()
-    else this.destroyWindow()
+    if (enabled) {
+      this.ensureWindow()
+      if (this.gameActive) this.startForegroundWatch()
+      this.applyVisibility()
+    } else {
+      this.stopForegroundWatch()
+      this.destroyWindow()
+    }
     const next = this.state
     this.emit('state', next)
     return next
+  }
+
+  /**
+   * Partie en cours ou non (câblé sur le poller Live). Hors partie, on **arrête
+   * complètement** la sonde de premier plan : elle lance un PowerShell à chaque
+   * tick, inutile de la faire tourner en permanence.
+   */
+  setGameActive(active: boolean): void {
+    if (this.gameActive === active) return
+    this.gameActive = active
+    if (active && this.deps.config.get('overlayEnabled')) this.startForegroundWatch()
+    else if (!active) this.stopForegroundWatch()
+    this.applyVisibility()
   }
 
   toggle(): OverlayState {
     return this.setEnabled(!this.deps.config.get('overlayEnabled'))
   }
 
-  /** Click-through on/off (appelé par la fenêtre overlay au survol). */
   setInteractive(interactive: boolean): void {
     if (!this.win || this.win.isDestroyed()) return
     if (interactive) this.win.setIgnoreMouseEvents(false)
@@ -109,19 +177,18 @@ export class Overlay extends EventEmitter {
   }
 
   /**
-   * Démarre un déplacement suivi depuis le process principal.
-   *
-   * On n'utilise **pas** `-webkit-app-region: drag` : la boucle de drag native
-   * de Chromium exige que la fenêtre prenne le focus, ce qui est incompatible
-   * avec le click-through basculé en asynchrone (et volerait le focus au jeu).
-   * On suit donc le curseur écran et on repositionne la fenêtre à la main.
+   * Déplacement suivi depuis le process principal. La **taille est capturée au
+   * début et ré-imposée à chaque tick** : sur Windows, `setPosition` en boucle
+   * sur une fenêtre `transparent` fait grossir la fenêtre (bug Electron/DPI).
    */
   startDrag(): void {
     if (!this.win || this.win.isDestroyed()) return
     this.endDrag()
-    const [wx, wy] = this.win.getPosition()
+    const b = this.win.getBounds()
     const cursor = screen.getCursorScreenPoint()
-    this.dragOffset = { x: cursor.x - wx, y: cursor.y - wy }
+    this.dragOffset = { x: cursor.x - b.x, y: cursor.y - b.y }
+    this.dragSize = { width: b.width, height: b.height }
+    this.dragging = true
 
     this.dragTimer = setInterval(() => {
       if (!this.win || this.win.isDestroyed()) {
@@ -129,21 +196,21 @@ export class Overlay extends EventEmitter {
         return
       }
       const p = screen.getCursorScreenPoint()
-      this.win.setPosition(p.x - this.dragOffset.x, p.y - this.dragOffset.y)
+      this.win.setBounds(dragBoundsFor(p, this.dragOffset, this.dragSize))
     }, DRAG_TICK_MS)
-    // Si le `mouseup` se perd (curseur sorti de la fenêtre), on ne reste pas collé.
     this.dragStopTimer = setTimeout(() => this.endDrag(), DRAG_MAX_MS)
   }
 
   endDrag(): void {
+    const wasDragging = this.dragTimer !== null
     if (this.dragTimer) clearInterval(this.dragTimer)
     if (this.dragStopTimer) clearTimeout(this.dragStopTimer)
-    if (this.dragTimer) this.persistBounds()
     this.dragTimer = null
     this.dragStopTimer = null
+    this.dragging = false
+    if (wasDragging) this.persistBounds()
   }
 
-  /** Relaie un message vers la fenêtre overlay (ex. `coach:advice`). */
   send(channel: string, payload: unknown): void {
     if (this.win && !this.win.isDestroyed()) this.win.webContents.send(channel, payload)
   }
@@ -151,9 +218,63 @@ export class Overlay extends EventEmitter {
   dispose(): void {
     this.disposed = true
     this.endDrag()
+    this.stopForegroundWatch()
     this.destroyWindow()
     this.removeAllListeners()
   }
+
+  // ─── Premier plan ────────────────────────────────────────────────────────
+
+  private startForegroundWatch(): void {
+    if (this.fgTimer || this.deps.isDev) {
+      // En dev : pas de gate, l'overlay est visible dès qu'il est activé.
+      if (this.deps.isDev) this.applyVisibility()
+      return
+    }
+    const tick = (): void => {
+      void this.getForeground()
+        .then((name) => {
+          if (name === null) {
+            this.fgFailures += 1
+          } else {
+            this.fgFailures = 0
+            this.gameForeground = name === GAME_PROCESS_NAME
+          }
+          this.applyVisibility()
+        })
+        .catch(() => {
+          this.fgFailures += 1
+          this.applyVisibility()
+        })
+    }
+    tick()
+    this.fgTimer = setInterval(tick, FOREGROUND_TICK_MS)
+  }
+
+  private stopForegroundWatch(): void {
+    if (this.fgTimer) clearInterval(this.fgTimer)
+    this.fgTimer = null
+    this.gameForeground = false
+    this.fgFailures = 0
+  }
+
+  private applyVisibility(): void {
+    if (!this.win || this.win.isDestroyed()) return
+    const show = overlayShouldShow({
+      enabled: this.deps.config.get('overlayEnabled'),
+      isDev: this.deps.isDev,
+      dragging: this.dragging,
+      gameActive: this.gameActive,
+      gameForeground: this.gameForeground,
+      // 3 échecs d'affilée → on considère la détection HS et on affiche
+      // plutôt que de piéger l'utilisateur avec un overlay invisible.
+      foregroundUnavailable: this.fgFailures >= 3,
+    })
+    if (show && !this.win.isVisible()) this.win.showInactive()
+    else if (!show && this.win.isVisible()) this.win.hide()
+  }
+
+  // ─── Fenêtre ─────────────────────────────────────────────────────────────
 
   private persistBounds(): void {
     if (!this.win || this.win.isDestroyed()) return
@@ -169,7 +290,7 @@ export class Overlay extends EventEmitter {
 
   private ensureWindow(): void {
     if (this.win && !this.win.isDestroyed()) {
-      this.win.showInactive()
+      this.applyVisibility()
       return
     }
     const bounds = clampToDisplay(this.deps.config.get('overlayBounds') ?? defaultBounds())
@@ -187,8 +308,6 @@ export class Overlay extends EventEmitter {
       skipTaskbar: true,
       show: false,
       hasShadow: false,
-      // Ne jamais prendre le focus : les frappes clavier restent au jeu (les
-      // événements souris arrivent quand même, WS_EX_NOACTIVATE sous Windows).
       focusable: false,
       webPreferences: {
         preload: this.deps.preloadPath,
@@ -198,25 +317,24 @@ export class Overlay extends EventEmitter {
       },
     })
 
-    // Au-dessus même des fenêtres plein écran « sans bordure ».
     win.setAlwaysOnTop(true, 'screen-saver')
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-    // Click-through par défaut, en gardant les mousemove pour le hit-test.
     win.setIgnoreMouseEvents(true, { forward: true })
 
-    // Aucune navigation externe depuis l'overlay.
     win.webContents.setWindowOpenHandler(({ url }) => {
       void shell.openExternal(url)
       return { action: 'deny' }
     })
 
-    const persist = (): void => this.persistBounds()
+    const persist = (): void => {
+      if (!this.dragging) this.persistBounds()
+    }
     win.on('moved', persist)
     win.on('resized', persist)
     win.on('closed', () => {
       if (this.win === win) this.win = null
     })
-    win.once('ready-to-show', () => win.showInactive())
+    win.once('ready-to-show', () => this.applyVisibility())
 
     if (this.deps.isDev && this.deps.rendererUrl) {
       void win.loadURL(`${this.deps.rendererUrl}/overlay.html`)
@@ -225,7 +343,7 @@ export class Overlay extends EventEmitter {
     }
 
     this.win = win
-    logger.info('Overlay affiché (League doit être en mode « Sans bordure »)')
+    logger.info('Overlay prêt (visible quand League est au premier plan)')
   }
 }
 

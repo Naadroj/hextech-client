@@ -49,6 +49,35 @@ export async function getLeagueClientCommandLine(): Promise<string | null> {
   }
 }
 
+const FG_MEMBER =
+  '[DllImport(\\"user32.dll\\")] public static extern System.IntPtr GetForegroundWindow(); ' +
+  '[DllImport(\\"user32.dll\\")] public static extern int GetWindowThreadProcessId(System.IntPtr h, out int p);'
+
+/**
+ * Nom du process de la fenêtre actuellement au premier plan (ex.
+ * `"League of Legends"` en partie, `"LeagueClientUx"` au menu, `"explorer"` sur
+ * le bureau), ou `null` si indéterminable. Lecture seule via l'API Win32.
+ * Sert à n'afficher l'overlay que quand le jeu est réellement au premier plan.
+ */
+export async function getForegroundProcessName(): Promise<string | null> {
+  const ps =
+    `Add-Type -Name FG -Namespace Win -MemberDefinition '${FG_MEMBER}'; ` +
+    '$h = [Win.FG]::GetForegroundWindow(); $p = 0; ' +
+    '[Win.FG]::GetWindowThreadProcessId($h, [ref]$p) | Out-Null; ' +
+    '(Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName'
+  try {
+    const { stdout } = await execAsync(
+      `powershell -NoProfile -NonInteractive -Command "${ps}"`,
+      { windowsHide: true, timeout: 4000 },
+    )
+    const name = stdout.trim()
+    return name.length > 0 ? name : null
+  } catch (err) {
+    logger.warn('getForegroundProcessName: échec', String(err))
+    return null
+  }
+}
+
 /**
  * Réduit la fenêtre du client officiel via l'API Win32 `ShowWindowAsync`
  * (SW_MINIMIZE = 6). Aucune injection : on ne fait qu'envoyer un message de

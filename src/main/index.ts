@@ -5,7 +5,7 @@ import { logger } from './logger'
 import { ConfigStore } from './config-store'
 import { createTray } from './tray'
 import { createLcuConnection } from './lcu'
-import { minimizeLeagueClientWindow } from './lcu/system'
+import { minimizeLeagueClientWindow, getForegroundProcessName } from './lcu/system'
 import { registerLcuIpc } from './ipc/lcu-ipc'
 import { createLiveClient } from './live'
 import { registerLiveIpc } from './ipc/live-ipc'
@@ -148,8 +148,14 @@ if (!singleInstance) {
       poller: live,
       getSender: () => win?.webContents ?? null,
     })
-    live.on('game-start', () => logger.info('Partie détectée (Live Client Data API)'))
-    live.on('game-end', () => logger.info('Partie terminée (Live Client Data API)'))
+    live.on('game-start', () => {
+      logger.info('Partie détectée (Live Client Data API)')
+      overlay?.setGameActive(true)
+    })
+    live.on('game-end', () => {
+      logger.info('Partie terminée (Live Client Data API)')
+      overlay?.setGameActive(false)
+    })
     // Hors partie, la Live API refuse la connexion : bruit attendu, on le tait.
     live.on('poll-error', () => {})
     live.start()
@@ -206,6 +212,7 @@ if (!singleInstance) {
           rendererUrl: process.env['ELECTRON_RENDERER_URL'],
           rendererDir: RENDERER_DIR,
           preloadPath: join(__dirname, '../preload/index.mjs'),
+          getForegroundProcessName,
         })
         registerOverlayIpc({
           ipcMain,
@@ -213,6 +220,8 @@ if (!singleInstance) {
           getSender: () => win?.webContents ?? null,
         })
         coach.on('advice', (advice) => overlay?.send(IpcChannels.coachAdvice, advice))
+        // La détection de premier plan ne tourne que pendant une partie.
+        overlay.setGameActive(live.currentStatus === 'active')
         overlay.restore()
 
         if (!globalShortcut.register(OVERLAY_HOTKEY, () => overlay?.toggle())) {
