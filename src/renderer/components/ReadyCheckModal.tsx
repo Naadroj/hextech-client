@@ -36,6 +36,7 @@ export function ReadyCheckModal() {
   }, [])
 
   useLcuEvent('/lol-matchmaking/v1/ready-check', (event) => {
+    if (event.uri !== '/lol-matchmaking/v1/ready-check') return
     if (event.eventType === 'Delete') {
       setReadyCheck(null)
       setResponding(false)

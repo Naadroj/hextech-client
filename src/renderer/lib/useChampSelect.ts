@@ -64,6 +64,7 @@ export function useChampSelect(connected: boolean): ChampSelectController {
   }, [connected])
 
   useLcuEvent('/lol-champ-select/v1/session', (event) => {
+    if (event.uri !== '/lol-champ-select/v1/session') return // ignore les sous-ressources
     if (event.eventType === 'Delete' || !event.data) setSession(null)
     else setSession(event.data as ChampSelectSession)
   })

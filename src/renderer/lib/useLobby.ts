@@ -71,12 +71,18 @@ export function useLobby(connected: boolean): LobbyController {
     }
   }, [connected])
 
+  // ⚠️ `useLcuEvent` filtre par préfixe : on ignore explicitement les
+  // sous-ressources (`…/lobby/members`, `…/lobby/matchmaking/search-state`, etc.)
+  // qui, pendant le matchmaking, écraseraient sinon le lobby par un objet
+  // partiel sans `gameConfig` → crash « Cannot read properties of undefined ».
   useLcuEvent('/lol-lobby/v2/lobby', (event) => {
+    if (event.uri !== '/lol-lobby/v2/lobby') return
     if (event.eventType === 'Delete') setLobby(null)
     else setLobby((event.data as Lobby) ?? null)
   })
 
   useLcuEvent('/lol-matchmaking/v1/search', (event) => {
+    if (event.uri !== '/lol-matchmaking/v1/search') return
     if (event.eventType === 'Delete') setSearch(null)
     else setSearch((event.data as MatchmakingSearch) ?? null)
   })

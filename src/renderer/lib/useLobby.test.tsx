@@ -80,4 +80,32 @@ describe('useLobby', () => {
     })
     expect(ctx.bridge.createLobby).toHaveBeenCalledWith(450)
   })
+
+  it('ignore les sous-ressources de /lol-lobby/v2/lobby (pas de lobby écrasé)', async () => {
+    const lobby = { partyId: 'p1', gameConfig: { queueId: 450, maxLobbySize: 5 }, members: [] }
+    const ctx = bridgeWithReads({ '/lol-lobby/v2/lobby': lobby })
+    const { result } = renderHook(() => useLobby(true))
+    await waitFor(() => expect(result.current.lobby?.partyId).toBe('p1'))
+
+    // Événement de sous-ressource émis pendant le matchmaking : ne doit pas
+    // remplacer le lobby par un objet partiel sans gameConfig.
+    act(() => {
+      ctx.emitters.event?.({
+        eventType: 'Update',
+        uri: '/lol-lobby/v2/lobby/matchmaking/search-state',
+        data: { searchState: 'Searching', lowPriorityData: {} },
+      })
+    })
+    expect(result.current.lobby).toEqual(lobby)
+
+    // Un Delete de sous-ressource ne doit pas non plus vider le lobby.
+    act(() => {
+      ctx.emitters.event?.({
+        eventType: 'Delete',
+        uri: '/lol-lobby/v2/lobby/members',
+        data: null,
+      })
+    })
+    expect(result.current.lobby).toEqual(lobby)
+  })
 })

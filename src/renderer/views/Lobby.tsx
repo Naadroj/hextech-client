@@ -52,7 +52,7 @@ export function Lobby({ connection }: { connection: ConnectionInfo }) {
     )
   }
 
-  if (!lobby) {
+  if (!lobby || !lobby.gameConfig) {
     const onConfirm = (item: ModeItem) => {
       if (item.kind === 'practice') void createPracticeTool()
       else if (item.kind === 'custom') void createCustom()
@@ -61,8 +61,9 @@ export function Lobby({ connection }: { connection: ConnectionInfo }) {
     return <ModeSelect categories={categories} busy={busy} error={error} onConfirm={onConfirm} />
   }
 
-  const currentQueue = queues.find((q) => q.id === lobby.gameConfig.queueId)
+  const currentQueue = queues.find((q) => q.id === lobby.gameConfig?.queueId)
   const canSearch = lobby.canStartActivity && !busy && phase !== 'Matchmaking'
+  const memberCount = lobby.members?.length ?? 0
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -72,7 +73,7 @@ export function Lobby({ connection }: { connection: ConnectionInfo }) {
       >
         <div className="flex items-center justify-between">
           <p className="text-sm text-parchment">
-            {lobby.members.length} / {lobby.gameConfig.maxLobbySize} invocateur(s)
+            {memberCount} / {lobby.gameConfig.maxLobbySize} invocateur(s)
           </p>
           <Button variant="ban" size="sm" disabled={busy || inQueue} onClick={() => void leaveLobby()}>
             Quitter
