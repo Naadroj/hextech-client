@@ -13,12 +13,6 @@ import { getOverlay, setOverlayInteractive } from '../lib/overlayBridge'
  * rendre la carte interactive uniquement au survol.
  */
 
-function clock(sec: number): string {
-  const m = Math.floor(sec / 60)
-  const s = Math.floor(sec % 60)
-  return `${m}:${String(s).padStart(2, '0')}`
-}
-
 /**
  * Rend la carte interactive quand le curseur la survole, click-through sinon.
  * `lockedRef` fige l'état interactif pendant un déplacement (sinon le curseur
@@ -89,12 +83,59 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
   const version = useStaticData().summary?.version ?? null
   const cardRef = useRef<HTMLDivElement>(null)
   const draggingRef = useRef(false)
-  const [collapsed, setCollapsed] = useState(false)
+  // Mode réduit par défaut ; l'état vit côté main (persisté + pilote la taille
+  // de la fenêtre), on le lit au montage et on le lui renvoie à chaque bascule.
+  const [compact, setCompact] = useState(true)
+  /** L'utilisateur a déjà basculé : la lecture au montage ne doit plus écraser. */
+  const touchedRef = useRef(false)
   useHoverInteractive(cardRef, draggingRef)
   const onDragHandleMouseDown = useWindowDrag(draggingRef)
 
+  useEffect(() => {
+    let active = true
+    try {
+      void getOverlay()
+        .getState()
+        .then((st) => {
+          if (active && !touchedRef.current) setCompact(st.compact)
+        })
+        .catch(() => {})
+    } catch {
+      /* hors Electron */
+    }
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const toggleCompact = (): void => {
+    touchedRef.current = true
+    const next = !compact
+    setCompact(next)
+    try {
+      void getOverlay().setCompact(next)
+    } catch {
+      /* hors Electron */
+    }
+  }
+
   const rec = advice.recommendation
-  const self = advice.self
+  const primary = rec?.primary ?? null
+
+  // Pas de bouton « fermer » : on retire l'overlay depuis l'app (Réglages ou
+  // Ctrl+Maj+O), pour ne pas le désactiver d'un clic malencontreux en pleine partie.
+  const buttons = (
+    <span className="ml-auto flex items-center" onMouseDown={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        aria-label={compact ? 'Déplier' : 'Replier'}
+        onClick={toggleCompact}
+        className="px-1 text-xs text-gold-700 hover:text-gold-100"
+      >
+        {compact ? '▸' : '▾'}
+      </button>
+    </span>
+  )
 
   return (
     <div className="flex h-screen w-screen items-stretch justify-center p-1">
@@ -102,101 +143,100 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
         ref={cardRef}
         className="relative flex h-full w-full flex-col overflow-hidden rounded border border-gold-800/80 bg-hextech-black/80 shadow-lg backdrop-blur-sm"
       >
-        {/* Poignée de déplacement — suivi du curseur côté process principal. */}
-        <div
-          role="presentation"
-          aria-label="Déplacer l’overlay"
-          onMouseDown={onDragHandleMouseDown}
-          className="flex cursor-move items-center gap-2 border-b border-gold-800/60 px-2 py-1"
-        >
-          <span className="font-display text-[10px] uppercase tracking-hexwide text-gold-700">
-            Coach
-          </span>
-          {self && <span className="truncate text-xs text-gold-100">{self.slug}</span>}
-          {self && <span className="text-xs text-parchment">{self.currentGold} or</span>}
-          <span className="ml-auto flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
-            <span className="mr-1 text-[10px] text-parchment">{clock(advice.gameTimeSeconds)}</span>
-            <button
-              type="button"
-              aria-label={collapsed ? 'Déplier' : 'Replier'}
-              onClick={() => setCollapsed((c) => !c)}
-              className="px-1 text-xs text-gold-700 hover:text-gold-100"
+        {compact ? (
+          /* Réduit : uniquement l'icône du prochain item. */
+          <div
+            role="presentation"
+            aria-label="Déplacer l’overlay"
+            onMouseDown={onDragHandleMouseDown}
+            className="flex h-full cursor-move items-center gap-1.5 px-1.5"
+          >
+            {primary ? (
+              <ItemIcon
+                itemId={primary.itemId}
+                version={version}
+                size={30}
+                title={primary.name}
+                className={primary.affordableNow ? 'border-ok/70' : undefined}
+              />
+            ) : (
+              <span className="inline-grid h-[30px] w-[30px] place-items-center border border-gold-800 bg-hextech-black/60">
+                <span className="h-2 w-2 rotate-45 bg-gold-800" />
+              </span>
+            )}
+            {buttons}
+          </div>
+        ) : (
+          <>
+            <div
+              role="presentation"
+              aria-label="Déplacer l’overlay"
+              onMouseDown={onDragHandleMouseDown}
+              className="flex cursor-move items-center gap-2 border-b border-gold-800/60 px-2 py-1"
             >
-              {collapsed ? '▸' : '▾'}
-            </button>
-            <button
-              type="button"
-              aria-label="Fermer l’overlay"
-              onClick={() => {
-                try {
-                  void getOverlay().setEnabled(false)
-                } catch {
-                  /* hors Electron */
-                }
-              }}
-              className="px-1 text-xs text-gold-700 hover:text-warn"
-            >
-              ✕
-            </button>
-          </span>
-        </div>
+              <span className="font-display text-[10px] uppercase tracking-hexwide text-gold-700">
+                Coach
+              </span>
+              {advice.self && (
+                <span className="truncate text-xs text-gold-100">{advice.self.slug}</span>
+              )}
+              {buttons}
+            </div>
 
-        {!collapsed && (
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
-            {rec?.primary ? (
-              <>
-                <div className="flex items-start gap-2">
-                  <ItemIcon itemId={rec.primary.itemId} version={version} size={36} title={rec.primary.name} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm text-gold-100">{rec.primary.name}</div>
-                    <div className="text-[11px] text-parchment">
-                      {rec.primary.goldTotal} or ·{' '}
-                      {rec.primary.affordableNow ? (
-                        <span className="text-ok">abordable</span>
-                      ) : (
-                        <span className="text-warn">manque {rec.primary.goldShort}</span>
-                      )}
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
+              {primary ? (
+                <>
+                  <div className="flex items-start gap-2">
+                    <ItemIcon itemId={primary.itemId} version={version} size={36} title={primary.name} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm text-gold-100">{primary.name}</div>
+                      <div className="text-[11px] text-parchment">
+                        {primary.goldTotal} or ·{' '}
+                        {primary.affordableNow ? (
+                          <span className="text-ok">abordable</span>
+                        ) : (
+                          <span className="text-warn">manque {primary.goldShort}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-                {rec.primary.reasons[0] && (
-                  <p className="text-[11px] leading-snug text-gold-100/80">• {rec.primary.reasons[0]}</p>
-                )}
+                  {primary.reasons[0] && (
+                    <p className="text-[11px] leading-snug text-gold-100/80">• {primary.reasons[0]}</p>
+                  )}
 
-                {rec.buildPath.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1 border-t border-gold-800/40 pt-2">
-                    {rec.buildPath.map((step) => (
-                      <ItemIcon
-                        key={step.itemId}
-                        itemId={step.itemId}
-                        version={version}
-                        size={22}
-                        title={step.owned ? `${step.name} (acheté)` : step.name}
-                        className={step.owned ? 'opacity-40' : undefined}
-                      />
-                    ))}
-                    {rec.boots && (
-                      <>
-                        <span className="mx-1 text-gold-800">|</span>
+                  {rec && rec.buildPath.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 border-t border-gold-800/40 pt-2">
+                      {rec.buildPath.map((step) => (
                         <ItemIcon
-                          itemId={rec.boots.itemId}
+                          key={step.itemId}
+                          itemId={step.itemId}
                           version={version}
                           size={22}
-                          title={rec.boots.name}
+                          title={step.owned ? `${step.name} (acheté)` : step.name}
+                          className={step.owned ? 'opacity-40' : undefined}
                         />
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
-            ) : (
-              <p className="text-[11px] text-parchment">
-                {advice.status === 'active'
-                  ? 'Analyse en cours…'
-                  : 'Aucune partie en cours.'}
-              </p>
-            )}
-          </div>
+                      ))}
+                      {rec.boots && (
+                        <>
+                          <span className="mx-1 text-gold-800">|</span>
+                          <ItemIcon
+                            itemId={rec.boots.itemId}
+                            version={version}
+                            size={22}
+                            title={rec.boots.name}
+                          />
+                        </>
+                      )}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-[11px] text-parchment">
+                  {advice.status === 'active' ? 'Analyse en cours…' : 'Aucune partie en cours.'}
+                </p>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>

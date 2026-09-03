@@ -122,6 +122,8 @@ export interface OverlayBridge {
   getState: () => Promise<OverlayState>
   setEnabled: (enabled: boolean) => Promise<OverlayState>
   toggle: () => Promise<OverlayState>
+  /** Bascule mode réduit / détaillé (redimensionne la fenêtre en conséquence). */
+  setCompact: (compact: boolean) => Promise<OverlayState>
   /** Appelé par la fenêtre overlay elle-même au survol / à la sortie de la carte. */
   setInteractive: (interactive: boolean) => Promise<void>
   /** Début de déplacement : le main suit le curseur jusqu'à `dragEnd`. */
@@ -190,6 +192,7 @@ export const IpcChannels = {
   overlayGetState: 'overlay:get-state',
   overlaySetEnabled: 'overlay:set-enabled',
   overlayToggle: 'overlay:toggle',
+  overlaySetCompact: 'overlay:set-compact',
   overlaySetInteractive: 'overlay:set-interactive',
   overlayDragStart: 'overlay:drag-start',
   overlayDragEnd: 'overlay:drag-end',

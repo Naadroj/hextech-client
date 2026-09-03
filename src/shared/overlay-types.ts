@@ -16,6 +16,8 @@ export interface OverlayBounds {
 export interface OverlayState {
   /** L'overlay est affiché. */
   enabled: boolean
+  /** Mode réduit : icône du prochain item seule, sans détail. */
+  compact: boolean
   /** Dernière position/taille connue (`null` = position par défaut). */
   bounds: OverlayBounds | null
 }
@@ -33,4 +35,13 @@ export const OVERLAY_SIZE_BOUNDS = {
   maxHeight: 340,
 }
 
-export const IDLE_OVERLAY_STATE: OverlayState = { enabled: false, bounds: null }
+/** Mode réduit : juste l'icône du prochain item et les deux boutons. */
+export const OVERLAY_COMPACT_RATIO = { width: 0.06, height: 0.045 }
+export const OVERLAY_COMPACT_BOUNDS = {
+  minWidth: 96,
+  maxWidth: 170,
+  minHeight: 42,
+  maxHeight: 72,
+}
+
+export const IDLE_OVERLAY_STATE: OverlayState = { enabled: false, compact: true, bounds: null }

@@ -10,6 +10,7 @@ export interface RegisterOverlayIpcDeps {
     | 'state'
     | 'setEnabled'
     | 'toggle'
+    | 'setCompact'
     | 'setInteractive'
     | 'startDrag'
     | 'endDrag'
@@ -24,6 +25,7 @@ const HANDLED = [
   IpcChannels.overlayGetState,
   IpcChannels.overlaySetEnabled,
   IpcChannels.overlayToggle,
+  IpcChannels.overlaySetCompact,
   IpcChannels.overlaySetInteractive,
   IpcChannels.overlayDragStart,
   IpcChannels.overlayDragEnd,
@@ -44,6 +46,7 @@ export function registerOverlayIpc(deps: RegisterOverlayIpcDeps): () => void {
     overlay.setEnabled(args[0] === true),
   )
   ipcMain.handle(IpcChannels.overlayToggle, () => overlay.toggle())
+  ipcMain.handle(IpcChannels.overlaySetCompact, (_e, ...args) => overlay.setCompact(args[0] === true))
   ipcMain.handle(IpcChannels.overlaySetInteractive, (_e, ...args) => {
     overlay.setInteractive(args[0] === true)
   })

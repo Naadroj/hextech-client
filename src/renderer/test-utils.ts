@@ -182,6 +182,7 @@ export function stubLcuBridge(
     getState: vi.fn(async () => ({ ...IDLE_OVERLAY_STATE })),
     setEnabled: vi.fn(async (enabled: boolean) => ({ ...IDLE_OVERLAY_STATE, enabled })),
     toggle: vi.fn(async () => ({ ...IDLE_OVERLAY_STATE, enabled: true })),
+    setCompact: vi.fn(async (compact: boolean) => ({ ...IDLE_OVERLAY_STATE, compact })),
     setInteractive: vi.fn(async () => {}),
     dragStart: vi.fn(async () => {}),
     dragEnd: vi.fn(async () => {}),

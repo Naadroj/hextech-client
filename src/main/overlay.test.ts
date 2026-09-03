@@ -46,6 +46,19 @@ describe('overlaySizeFor', () => {
   it('borne le maximum en 4K', () => {
     expect(overlaySizeFor({ width: 3840, height: 2160 })).toEqual({ width: 420, height: 340 })
   })
+
+  it('mode réduit : nettement plus petit', () => {
+    const full = overlaySizeFor({ width: 1920, height: 1080 })
+    const compact = overlaySizeFor({ width: 1920, height: 1080 }, true)
+    expect(compact).toEqual({ width: 115, height: 49 })
+    expect(compact.width).toBeLessThan(full.width)
+    expect(compact.height).toBeLessThan(full.height)
+  })
+
+  it('mode réduit : borné en 720p et en 4K', () => {
+    expect(overlaySizeFor({ width: 1280, height: 720 }, true)).toEqual({ width: 96, height: 42 })
+    expect(overlaySizeFor({ width: 3840, height: 2160 }, true)).toEqual({ width: 170, height: 72 })
+  })
 })
 
 describe('overlayShouldShow', () => {

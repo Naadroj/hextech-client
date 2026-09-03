@@ -4,6 +4,8 @@ import { BrowserWindow, screen, shell } from 'electron'
 import { logger } from './logger'
 import type { ConfigStore } from './config-store'
 import {
+  OVERLAY_COMPACT_BOUNDS,
+  OVERLAY_COMPACT_RATIO,
   OVERLAY_SIZE_BOUNDS,
   OVERLAY_SIZE_RATIO,
   type OverlayBounds,
@@ -67,23 +69,17 @@ export function dragBoundsFor(
  * travail**, bornée pour rester lisible en 1080p et raisonnable en 4K. La
  * fenêtre n'est pas redimensionnable — la taille suit l'écran.
  */
-export function overlaySizeFor(area: { width: number; height: number }): {
-  width: number
-  height: number
-} {
+export function overlaySizeFor(
+  area: { width: number; height: number },
+  compact = false,
+): { width: number; height: number } {
+  const ratio = compact ? OVERLAY_COMPACT_RATIO : OVERLAY_SIZE_RATIO
+  const b = compact ? OVERLAY_COMPACT_BOUNDS : OVERLAY_SIZE_BOUNDS
   const clamp = (v: number, lo: number, hi: number): number =>
     Math.round(Math.min(Math.max(v, lo), hi))
   return {
-    width: clamp(
-      area.width * OVERLAY_SIZE_RATIO.width,
-      OVERLAY_SIZE_BOUNDS.minWidth,
-      OVERLAY_SIZE_BOUNDS.maxWidth,
-    ),
-    height: clamp(
-      area.height * OVERLAY_SIZE_RATIO.height,
-      OVERLAY_SIZE_BOUNDS.minHeight,
-      OVERLAY_SIZE_BOUNDS.maxHeight,
-    ),
+    width: clamp(area.width * ratio.width, b.minWidth, b.maxWidth),
+    height: clamp(area.height * ratio.height, b.minHeight, b.maxHeight),
   }
 }
 
@@ -121,7 +117,7 @@ const clampToDisplay = (b: OverlayBounds): OverlayBounds => {
 /** Coin **haut-gauche** de l'écran principal, légèrement décalé. */
 function defaultBounds(): OverlayBounds {
   const area = screen.getPrimaryDisplay().workArea
-  return { ...overlaySizeFor(area), x: area.x + 24, y: area.y + 24 }
+  return { ...overlaySizeFor(area, true), x: area.x + 24, y: area.y + 24 }
 }
 
 export class Overlay extends EventEmitter {
@@ -151,8 +147,23 @@ export class Overlay extends EventEmitter {
   get state(): OverlayState {
     return {
       enabled: this.deps.config.get('overlayEnabled'),
+      compact: this.deps.config.get('overlayCompact'),
       bounds: this.deps.config.get('overlayBounds'),
     }
+  }
+
+  /** Bascule réduit / détaillé : redimensionne la fenêtre en gardant sa position. */
+  setCompact(compact: boolean): OverlayState {
+    this.deps.config.set('overlayCompact', compact)
+    if (this.win && !this.win.isDestroyed()) {
+      const b = this.win.getBounds()
+      const area = screen.getDisplayNearestPoint({ x: b.x, y: b.y }).workArea
+      this.win.setBounds(clampToDisplay({ x: b.x, y: b.y, ...overlaySizeFor(area, compact) }))
+      this.persistBounds()
+    }
+    const next = this.state
+    this.emit('state', next)
+    return next
   }
 
   restore(): void {
@@ -321,7 +332,8 @@ export class Overlay extends EventEmitter {
     const fallback = defaultBounds()
     const origin = saved ? { x: saved.x, y: saved.y } : { x: fallback.x, y: fallback.y }
     const area = screen.getDisplayNearestPoint(origin).workArea
-    const bounds = clampToDisplay({ ...origin, ...overlaySizeFor(area) })
+    const compact = this.deps.config.get('overlayCompact')
+    const bounds = clampToDisplay({ ...origin, ...overlaySizeFor(area, compact) })
 
     const win = new BrowserWindow({
       ...bounds,

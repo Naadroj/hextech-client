@@ -17,6 +17,8 @@ export interface AppConfig {
   closeToTray: boolean
   /** Overlay in-game affiché. */
   overlayEnabled: boolean
+  /** Overlay en mode réduit (icône seule). */
+  overlayCompact: boolean
   /** Dernière position/taille de l'overlay (`null` = position par défaut). */
   overlayBounds: OverlayBounds | null
 }
@@ -25,7 +27,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   minimizeOfficialClientOnConnect: false,
   startMinimizedToTray: false,
   closeToTray: true,
-  overlayEnabled: false,
+  overlayEnabled: true,
+  overlayCompact: true,
   overlayBounds: null,
 }
 

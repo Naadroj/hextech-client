@@ -22,12 +22,18 @@ class FakeIpcMain implements IpcMainLike {
 
 class FakeOverlay extends EventEmitter {
   private enabled = false
+  private compact = true
   setInteractive = vi.fn()
   startDrag = vi.fn()
   endDrag = vi.fn()
   get state(): OverlayState {
-    return { enabled: this.enabled, bounds: null }
+    return { enabled: this.enabled, compact: this.compact, bounds: null }
   }
+  setCompact = vi.fn((v: boolean): OverlayState => {
+    this.compact = v
+    this.emit('state', this.state)
+    return this.state
+  })
   setEnabled = vi.fn((v: boolean): OverlayState => {
     this.enabled = v
     this.emit('state', this.state)
@@ -55,21 +61,21 @@ function setup() {
 describe('registerOverlayIpc', () => {
   it('expose l’état courant', () => {
     const { ipcMain } = setup()
-    expect(ipcMain.invoke(IpcChannels.overlayGetState)).toEqual({ enabled: false, bounds: null })
+    expect(ipcMain.invoke(IpcChannels.overlayGetState)).toEqual({ enabled: false, compact: true, bounds: null })
   })
 
   it('setEnabled active/désactive et relaie l’état au renderer', () => {
     const { ipcMain, overlay, sent } = setup()
     const next = ipcMain.invoke(IpcChannels.overlaySetEnabled, true)
     expect(overlay.setEnabled).toHaveBeenCalledWith(true)
-    expect(next).toEqual({ enabled: true, bounds: null })
-    expect(sent).toEqual([{ channel: IpcChannels.overlayState, payload: { enabled: true, bounds: null } }])
+    expect(next).toEqual({ enabled: true, compact: true, bounds: null })
+    expect(sent).toEqual([{ channel: IpcChannels.overlayState, payload: { enabled: true, compact: true, bounds: null } }])
   })
 
   it('toggle inverse l’état', () => {
     const { ipcMain } = setup()
-    expect(ipcMain.invoke(IpcChannels.overlayToggle)).toEqual({ enabled: true, bounds: null })
-    expect(ipcMain.invoke(IpcChannels.overlayToggle)).toEqual({ enabled: false, bounds: null })
+    expect(ipcMain.invoke(IpcChannels.overlayToggle)).toEqual({ enabled: true, compact: true, bounds: null })
+    expect(ipcMain.invoke(IpcChannels.overlayToggle)).toEqual({ enabled: false, compact: true, bounds: null })
   })
 
   it('setInteractive transmet un booléen strict', () => {
@@ -88,11 +94,19 @@ describe('registerOverlayIpc', () => {
     expect(overlay.endDrag).toHaveBeenCalledOnce()
   })
 
+  it('setCompact bascule le mode et relaie l’état', () => {
+    const { ipcMain, overlay, sent } = setup()
+    const next = ipcMain.invoke(IpcChannels.overlaySetCompact, false)
+    expect(overlay.setCompact).toHaveBeenCalledWith(false)
+    expect(next).toEqual({ enabled: false, compact: false, bounds: null })
+    expect(sent.at(-1)?.channel).toBe(IpcChannels.overlayState)
+  })
+
   it('dispose retire les handlers et coupe le relais', () => {
     const { ipcMain, overlay, sent, dispose } = setup()
     dispose()
     expect(ipcMain.handlers.size).toBe(0)
-    overlay.emit('state', { enabled: true, bounds: null })
+    overlay.emit('state', { enabled: true, compact: true, bounds: null })
     expect(sent).toHaveLength(0)
   })
 })
