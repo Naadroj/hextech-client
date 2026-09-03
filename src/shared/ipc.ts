@@ -124,6 +124,9 @@ export interface OverlayBridge {
   toggle: () => Promise<OverlayState>
   /** Appelé par la fenêtre overlay elle-même au survol / à la sortie de la carte. */
   setInteractive: (interactive: boolean) => Promise<void>
+  /** Début de déplacement : le main suit le curseur jusqu'à `dragEnd`. */
+  dragStart: () => Promise<void>
+  dragEnd: () => Promise<void>
   onState: (cb: (state: OverlayState) => void) => () => void
 }
 
@@ -188,6 +191,8 @@ export const IpcChannels = {
   overlaySetEnabled: 'overlay:set-enabled',
   overlayToggle: 'overlay:toggle',
   overlaySetInteractive: 'overlay:set-interactive',
+  overlayDragStart: 'overlay:drag-start',
+  overlayDragEnd: 'overlay:drag-end',
   overlayState: 'overlay:state',
 } as const
 

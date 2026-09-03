@@ -23,6 +23,8 @@ class FakeIpcMain implements IpcMainLike {
 class FakeOverlay extends EventEmitter {
   private enabled = false
   setInteractive = vi.fn()
+  startDrag = vi.fn()
+  endDrag = vi.fn()
   get state(): OverlayState {
     return { enabled: this.enabled, bounds: null }
   }
@@ -76,6 +78,14 @@ describe('registerOverlayIpc', () => {
     ipcMain.invoke(IpcChannels.overlaySetInteractive, 'oui')
     expect(overlay.setInteractive).toHaveBeenNthCalledWith(1, true)
     expect(overlay.setInteractive).toHaveBeenNthCalledWith(2, false)
+  })
+
+  it('relaie début et fin de déplacement', () => {
+    const { ipcMain, overlay } = setup()
+    ipcMain.invoke(IpcChannels.overlayDragStart)
+    ipcMain.invoke(IpcChannels.overlayDragEnd)
+    expect(overlay.startDrag).toHaveBeenCalledOnce()
+    expect(overlay.endDrag).toHaveBeenCalledOnce()
   })
 
   it('dispose retire les handlers et coupe le relais', () => {

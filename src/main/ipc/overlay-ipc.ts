@@ -5,7 +5,10 @@ import type { IpcMainLike, SenderLike } from './update-ipc'
 
 export interface RegisterOverlayIpcDeps {
   ipcMain: IpcMainLike
-  overlay: Pick<Overlay, 'state' | 'setEnabled' | 'toggle' | 'setInteractive' | 'on' | 'off'>
+  overlay: Pick<
+    Overlay,
+    'state' | 'setEnabled' | 'toggle' | 'setInteractive' | 'startDrag' | 'endDrag' | 'on' | 'off'
+  >
   /** Fenêtre principale (reçoit les changements d'état pour l'UI Réglages). */
   getSender: () => SenderLike | null
 }
@@ -15,6 +18,8 @@ const HANDLED = [
   IpcChannels.overlaySetEnabled,
   IpcChannels.overlayToggle,
   IpcChannels.overlaySetInteractive,
+  IpcChannels.overlayDragStart,
+  IpcChannels.overlayDragEnd,
 ]
 
 /** Branche les handlers overlay + le relais d'état vers le renderer. `dispose()`. */
@@ -35,6 +40,8 @@ export function registerOverlayIpc(deps: RegisterOverlayIpcDeps): () => void {
   ipcMain.handle(IpcChannels.overlaySetInteractive, (_e, ...args) => {
     overlay.setInteractive(args[0] === true)
   })
+  ipcMain.handle(IpcChannels.overlayDragStart, () => overlay.startDrag())
+  ipcMain.handle(IpcChannels.overlayDragEnd, () => overlay.endDrag())
 
   return () => {
     overlay.off('state', relay)

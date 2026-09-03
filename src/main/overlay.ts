@@ -48,19 +48,28 @@ const clampToDisplay = (b: OverlayBounds): OverlayBounds => {
   }
 }
 
+/** Coin **haut-gauche** de l'écran principal, légèrement décalé. */
 function defaultBounds(): OverlayBounds {
   const area = screen.getPrimaryDisplay().workArea
   return {
     width: OVERLAY_DEFAULT_SIZE.width,
     height: OVERLAY_DEFAULT_SIZE.height,
-    x: area.x + area.width - OVERLAY_DEFAULT_SIZE.width - 24,
+    x: area.x + 24,
     y: area.y + 24,
   }
 }
 
+/** Cadence de suivi du curseur pendant un déplacement (~60 Hz). */
+const DRAG_TICK_MS = 16
+/** Filet de sécurité : un drag ne dure jamais plus longtemps que ça. */
+const DRAG_MAX_MS = 30_000
+
 export class Overlay extends EventEmitter {
   private win: BrowserWindow | null = null
   private disposed = false
+  private dragTimer: NodeJS.Timeout | null = null
+  private dragStopTimer: NodeJS.Timeout | null = null
+  private dragOffset = { x: 0, y: 0 }
 
   constructor(private readonly deps: OverlayDeps) {
     super()
@@ -99,6 +108,41 @@ export class Overlay extends EventEmitter {
     else this.win.setIgnoreMouseEvents(true, { forward: true })
   }
 
+  /**
+   * Démarre un déplacement suivi depuis le process principal.
+   *
+   * On n'utilise **pas** `-webkit-app-region: drag` : la boucle de drag native
+   * de Chromium exige que la fenêtre prenne le focus, ce qui est incompatible
+   * avec le click-through basculé en asynchrone (et volerait le focus au jeu).
+   * On suit donc le curseur écran et on repositionne la fenêtre à la main.
+   */
+  startDrag(): void {
+    if (!this.win || this.win.isDestroyed()) return
+    this.endDrag()
+    const [wx, wy] = this.win.getPosition()
+    const cursor = screen.getCursorScreenPoint()
+    this.dragOffset = { x: cursor.x - wx, y: cursor.y - wy }
+
+    this.dragTimer = setInterval(() => {
+      if (!this.win || this.win.isDestroyed()) {
+        this.endDrag()
+        return
+      }
+      const p = screen.getCursorScreenPoint()
+      this.win.setPosition(p.x - this.dragOffset.x, p.y - this.dragOffset.y)
+    }, DRAG_TICK_MS)
+    // Si le `mouseup` se perd (curseur sorti de la fenêtre), on ne reste pas collé.
+    this.dragStopTimer = setTimeout(() => this.endDrag(), DRAG_MAX_MS)
+  }
+
+  endDrag(): void {
+    if (this.dragTimer) clearInterval(this.dragTimer)
+    if (this.dragStopTimer) clearTimeout(this.dragStopTimer)
+    if (this.dragTimer) this.persistBounds()
+    this.dragTimer = null
+    this.dragStopTimer = null
+  }
+
   /** Relaie un message vers la fenêtre overlay (ex. `coach:advice`). */
   send(channel: string, payload: unknown): void {
     if (this.win && !this.win.isDestroyed()) this.win.webContents.send(channel, payload)
@@ -106,11 +150,19 @@ export class Overlay extends EventEmitter {
 
   dispose(): void {
     this.disposed = true
+    this.endDrag()
     this.destroyWindow()
     this.removeAllListeners()
   }
 
+  private persistBounds(): void {
+    if (!this.win || this.win.isDestroyed()) return
+    const b = this.win.getBounds()
+    this.deps.config.set('overlayBounds', { x: b.x, y: b.y, width: b.width, height: b.height })
+  }
+
   private destroyWindow(): void {
+    this.endDrag()
     if (this.win && !this.win.isDestroyed()) this.win.destroy()
     this.win = null
   }
@@ -135,6 +187,9 @@ export class Overlay extends EventEmitter {
       skipTaskbar: true,
       show: false,
       hasShadow: false,
+      // Ne jamais prendre le focus : les frappes clavier restent au jeu (les
+      // événements souris arrivent quand même, WS_EX_NOACTIVATE sous Windows).
+      focusable: false,
       webPreferences: {
         preload: this.deps.preloadPath,
         contextIsolation: true,
@@ -155,11 +210,7 @@ export class Overlay extends EventEmitter {
       return { action: 'deny' }
     })
 
-    const persist = (): void => {
-      if (!win || win.isDestroyed()) return
-      const b = win.getBounds()
-      this.deps.config.set('overlayBounds', { x: b.x, y: b.y, width: b.width, height: b.height })
-    }
+    const persist = (): void => this.persistBounds()
     win.on('moved', persist)
     win.on('resized', persist)
     win.on('closed', () => {

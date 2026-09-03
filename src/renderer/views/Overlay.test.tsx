@@ -35,4 +35,20 @@ describe('OverlayView', () => {
     fireEvent.click(screen.getByLabelText('Fermer l’overlay'))
     expect(overlay.setEnabled).toHaveBeenCalledWith(false)
   })
+
+  it('la poignée démarre un déplacement et le termine au mouseup', () => {
+    const { overlay } = stubLcuBridge()
+    render(<OverlayView advice={makeCoachAdvice()} />)
+    fireEvent.mouseDown(screen.getByLabelText('Déplacer l’overlay'), { button: 0 })
+    expect(overlay.dragStart).toHaveBeenCalledOnce()
+    fireEvent.mouseUp(window)
+    expect(overlay.dragEnd).toHaveBeenCalledOnce()
+  })
+
+  it('un clic sur les boutons d’en-tête ne démarre pas de déplacement', () => {
+    const { overlay } = stubLcuBridge()
+    render(<OverlayView advice={makeCoachAdvice()} />)
+    fireEvent.mouseDown(screen.getByLabelText('Replier'), { button: 0 })
+    expect(overlay.dragStart).not.toHaveBeenCalled()
+  })
 })

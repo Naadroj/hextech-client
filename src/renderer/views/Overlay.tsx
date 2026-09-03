@@ -19,12 +19,19 @@ function clock(sec: number): string {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
-/** Rend la carte interactive quand le curseur la survole, click-through sinon. */
-function useHoverInteractive(ref: React.RefObject<HTMLElement>): void {
+/**
+ * Rend la carte interactive quand le curseur la survole, click-through sinon.
+ * `lockedRef` fige l'état interactif pendant un déplacement (sinon le curseur
+ * sortant de la carte repasserait la fenêtre en click-through en plein drag).
+ */
+function useHoverInteractive(
+  ref: React.RefObject<HTMLElement>,
+  lockedRef: React.RefObject<boolean>,
+): void {
   const insideRef = useRef(false)
   useEffect(() => {
     const update = (inside: boolean): void => {
-      if (insideRef.current === inside) return
+      if (lockedRef.current || insideRef.current === inside) return
       insideRef.current = inside
       setOverlayInteractive(inside)
     }
@@ -42,7 +49,34 @@ function useHoverInteractive(ref: React.RefObject<HTMLElement>): void {
       document.removeEventListener('mouseleave', onLeave)
       if (insideRef.current) setOverlayInteractive(false)
     }
-  }, [ref])
+  }, [ref, lockedRef])
+}
+
+/** Déplacement de la fenêtre : le suivi du curseur est fait par le process principal. */
+function useWindowDrag(lockedRef: React.MutableRefObject<boolean>): (e: React.MouseEvent) => void {
+  return (e: React.MouseEvent) => {
+    if (e.button !== 0 || lockedRef.current) return
+    e.preventDefault()
+    lockedRef.current = true
+    setOverlayInteractive(true)
+    try {
+      void getOverlay().dragStart()
+    } catch {
+      /* hors Electron */
+    }
+    const stop = (): void => {
+      window.removeEventListener('mouseup', stop)
+      window.removeEventListener('blur', stop)
+      lockedRef.current = false
+      try {
+        void getOverlay().dragEnd()
+      } catch {
+        /* hors Electron */
+      }
+    }
+    window.addEventListener('mouseup', stop)
+    window.addEventListener('blur', stop)
+  }
 }
 
 export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {}) {
@@ -50,8 +84,10 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
   const advice = injected ?? live
   const version = useStaticData().summary?.version ?? null
   const cardRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
   const [collapsed, setCollapsed] = useState(false)
-  useHoverInteractive(cardRef)
+  useHoverInteractive(cardRef, draggingRef)
+  const onDragHandleMouseDown = useWindowDrag(draggingRef)
 
   const rec = advice.recommendation
   const self = advice.self
@@ -62,17 +98,19 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
         ref={cardRef}
         className="w-full rounded border border-gold-800/80 bg-hextech-black/80 shadow-lg backdrop-blur-sm"
       >
-        {/* Poignée de déplacement (drag natif via -webkit-app-region). */}
+        {/* Poignée de déplacement — suivi du curseur côté process principal. */}
         <div
-          className="flex items-center gap-2 border-b border-gold-800/60 px-2 py-1"
-          style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+          role="presentation"
+          aria-label="Déplacer l’overlay"
+          onMouseDown={onDragHandleMouseDown}
+          className="flex cursor-move items-center gap-2 border-b border-gold-800/60 px-2 py-1"
         >
           <span className="font-display text-[10px] uppercase tracking-hexwide text-gold-700">
             Coach
           </span>
           {self && <span className="truncate text-xs text-gold-100">{self.slug}</span>}
           {self && <span className="text-xs text-parchment">{self.currentGold} or</span>}
-          <span className="ml-auto flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <span className="ml-auto flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
             <span className="mr-1 text-[10px] text-parchment">{clock(advice.gameTimeSeconds)}</span>
             <button
               type="button"

@@ -82,6 +82,8 @@ const api: AppApi = {
     toggle: () => ipcRenderer.invoke(IpcChannels.overlayToggle),
     setInteractive: (interactive: boolean) =>
       ipcRenderer.invoke(IpcChannels.overlaySetInteractive, interactive),
+    dragStart: () => ipcRenderer.invoke(IpcChannels.overlayDragStart),
+    dragEnd: () => ipcRenderer.invoke(IpcChannels.overlayDragEnd),
     onState: (cb: (state: OverlayState) => void) =>
       subscribe<OverlayState>(IpcChannels.overlayState, cb),
   },
