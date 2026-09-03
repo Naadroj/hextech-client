@@ -8,7 +8,7 @@ vi.mock('electron', () => ({
   shell: {},
 }))
 
-const { dragBoundsFor, overlayShouldShow } = await import('./overlay')
+const { dragBoundsFor, overlaySizeFor, overlayShouldShow } = await import('./overlay')
 
 describe('dragBoundsFor', () => {
   it('déplace la fenêtre sans jamais changer sa taille', () => {
@@ -28,6 +28,23 @@ describe('dragBoundsFor', () => {
   it('arrondit les coordonnées fractionnaires (anti-drift DPI)', () => {
     const r = dragBoundsFor({ x: 100.6, y: 200.4 }, { x: 0.2, y: 0.7 }, { width: 340.9, height: 260.1 })
     expect(r).toEqual({ x: 100, y: 200, width: 341, height: 260 })
+  })
+})
+
+describe('overlaySizeFor', () => {
+  it('dimensionne en fraction de l’écran', () => {
+    // 1920×1080 → 15 % / 22 %
+    expect(overlaySizeFor({ width: 1920, height: 1080 })).toEqual({ width: 288, height: 238 })
+  })
+
+  it('borne le minimum sur un petit écran', () => {
+    const r = overlaySizeFor({ width: 1280, height: 720 })
+    expect(r.width).toBe(240) // 192 → plancher
+    expect(r.height).toBe(158)
+  })
+
+  it('borne le maximum en 4K', () => {
+    expect(overlaySizeFor({ width: 3840, height: 2160 })).toEqual({ width: 420, height: 340 })
   })
 })
 

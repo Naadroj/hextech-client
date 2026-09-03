@@ -52,27 +52,31 @@ function useHoverInteractive(
   }, [ref, lockedRef])
 }
 
-/** Déplacement de la fenêtre : le suivi du curseur est fait par le process principal. */
+/**
+ * Déplacement de la fenêtre : le suivi du curseur est fait par le process
+ * principal. Ici on ne fait qu'ouvrir et fermer le geste, et verrouiller
+ * l'interactivité le temps qu'il dure.
+ */
 function useWindowDrag(lockedRef: React.MutableRefObject<boolean>): (e: React.MouseEvent) => void {
   return (e: React.MouseEvent) => {
     if (e.button !== 0 || lockedRef.current) return
     e.preventDefault()
+    e.stopPropagation()
     lockedRef.current = true
     setOverlayInteractive(true)
-    try {
-      void getOverlay().dragStart()
-    } catch {
-      /* hors Electron */
+    const call = (fn: 'dragStart' | 'dragEnd'): void => {
+      try {
+        void getOverlay()[fn]()
+      } catch {
+        /* hors Electron */
+      }
     }
+    call('dragStart')
     const stop = (): void => {
       window.removeEventListener('mouseup', stop)
       window.removeEventListener('blur', stop)
       lockedRef.current = false
-      try {
-        void getOverlay().dragEnd()
-      } catch {
-        /* hors Electron */
-      }
+      call('dragEnd')
     }
     window.addEventListener('mouseup', stop)
     window.addEventListener('blur', stop)
@@ -93,10 +97,10 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
   const self = advice.self
 
   return (
-    <div className="flex h-screen w-screen items-start justify-center p-1">
+    <div className="flex h-screen w-screen items-stretch justify-center p-1">
       <div
         ref={cardRef}
-        className="w-full rounded border border-gold-800/80 bg-hextech-black/80 shadow-lg backdrop-blur-sm"
+        className="relative flex h-full w-full flex-col overflow-hidden rounded border border-gold-800/80 bg-hextech-black/80 shadow-lg backdrop-blur-sm"
       >
         {/* Poignée de déplacement — suivi du curseur côté process principal. */}
         <div
@@ -138,7 +142,7 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
         </div>
 
         {!collapsed && (
-          <div className="space-y-2 p-2">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
             {rec?.primary ? (
               <>
                 <div className="flex items-start gap-2">

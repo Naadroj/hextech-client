@@ -4,7 +4,8 @@ import { BrowserWindow, screen, shell } from 'electron'
 import { logger } from './logger'
 import type { ConfigStore } from './config-store'
 import {
-  OVERLAY_DEFAULT_SIZE,
+  OVERLAY_SIZE_BOUNDS,
+  OVERLAY_SIZE_RATIO,
   type OverlayBounds,
   type OverlayState,
 } from '../shared/overlay-types'
@@ -62,6 +63,31 @@ export function dragBoundsFor(
 }
 
 /**
+ * Taille de l'overlay pour un écran donné : une **fraction de la zone de
+ * travail**, bornée pour rester lisible en 1080p et raisonnable en 4K. La
+ * fenêtre n'est pas redimensionnable — la taille suit l'écran.
+ */
+export function overlaySizeFor(area: { width: number; height: number }): {
+  width: number
+  height: number
+} {
+  const clamp = (v: number, lo: number, hi: number): number =>
+    Math.round(Math.min(Math.max(v, lo), hi))
+  return {
+    width: clamp(
+      area.width * OVERLAY_SIZE_RATIO.width,
+      OVERLAY_SIZE_BOUNDS.minWidth,
+      OVERLAY_SIZE_BOUNDS.maxWidth,
+    ),
+    height: clamp(
+      area.height * OVERLAY_SIZE_RATIO.height,
+      OVERLAY_SIZE_BOUNDS.minHeight,
+      OVERLAY_SIZE_BOUNDS.maxHeight,
+    ),
+  }
+}
+
+/**
  * L'overlay doit-il être visible ? Il faut **une partie en cours** *et* que la
  * fenêtre de jeu soit au premier plan (Alt-Tab → masqué). On garde la fenêtre
  * visible pendant un déplacement, et en dev pour pouvoir la travailler.
@@ -95,12 +121,7 @@ const clampToDisplay = (b: OverlayBounds): OverlayBounds => {
 /** Coin **haut-gauche** de l'écran principal, légèrement décalé. */
 function defaultBounds(): OverlayBounds {
   const area = screen.getPrimaryDisplay().workArea
-  return {
-    width: OVERLAY_DEFAULT_SIZE.width,
-    height: OVERLAY_DEFAULT_SIZE.height,
-    x: area.x + 24,
-    y: area.y + 24,
-  }
+  return { ...overlaySizeFor(area), x: area.x + 24, y: area.y + 24 }
 }
 
 export class Overlay extends EventEmitter {
@@ -109,8 +130,9 @@ export class Overlay extends EventEmitter {
   private dragTimer: NodeJS.Timeout | null = null
   private dragStopTimer: NodeJS.Timeout | null = null
   private dragOffset = { x: 0, y: 0 }
-  private dragSize = { width: OVERLAY_DEFAULT_SIZE.width, height: OVERLAY_DEFAULT_SIZE.height }
+  private dragSize = { width: 0, height: 0 }
   private dragging = false
+
 
   private fgTimer: NodeJS.Timeout | null = null
   private gameActive = false
@@ -293,7 +315,13 @@ export class Overlay extends EventEmitter {
       this.applyVisibility()
       return
     }
-    const bounds = clampToDisplay(this.deps.config.get('overlayBounds') ?? defaultBounds())
+    // Seule la **position** est restaurée : la taille est toujours recalculée
+    // depuis l'écran courant (l'overlay n'est pas redimensionnable).
+    const saved = this.deps.config.get('overlayBounds')
+    const fallback = defaultBounds()
+    const origin = saved ? { x: saved.x, y: saved.y } : { x: fallback.x, y: fallback.y }
+    const area = screen.getDisplayNearestPoint(origin).workArea
+    const bounds = clampToDisplay({ ...origin, ...overlaySizeFor(area) })
 
     const win = new BrowserWindow({
       ...bounds,

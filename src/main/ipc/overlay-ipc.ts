@@ -7,7 +7,14 @@ export interface RegisterOverlayIpcDeps {
   ipcMain: IpcMainLike
   overlay: Pick<
     Overlay,
-    'state' | 'setEnabled' | 'toggle' | 'setInteractive' | 'startDrag' | 'endDrag' | 'on' | 'off'
+    | 'state'
+    | 'setEnabled'
+    | 'toggle'
+    | 'setInteractive'
+    | 'startDrag'
+    | 'endDrag'
+    | 'on'
+    | 'off'
   >
   /** Fenêtre principale (reçoit les changements d'état pour l'UI Réglages). */
   getSender: () => SenderLike | null
