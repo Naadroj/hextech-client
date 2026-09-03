@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { logger } from './logger'
+import type { OverlayBounds } from '../shared/overlay-types'
 
 /**
  * Préférences persistées dans un simple fichier JSON (aucune dépendance).
@@ -14,23 +15,40 @@ export interface AppConfig {
   startMinimizedToTray: boolean
   /** Fermer vers le systray plutôt que quitter. */
   closeToTray: boolean
+  /** Overlay in-game affiché. */
+  overlayEnabled: boolean
+  /** Dernière position/taille de l'overlay (`null` = position par défaut). */
+  overlayBounds: OverlayBounds | null
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
   minimizeOfficialClientOnConnect: false,
   startMinimizedToTray: false,
   closeToTray: true,
+  overlayEnabled: false,
+  overlayBounds: null,
 }
 
-const BOOLEAN_KEYS = Object.keys(DEFAULT_CONFIG) as (keyof AppConfig)[]
+const BOOLEAN_KEYS = (Object.keys(DEFAULT_CONFIG) as (keyof AppConfig)[]).filter(
+  (k) => typeof DEFAULT_CONFIG[k] === 'boolean',
+)
+
+function coerceBounds(v: unknown): OverlayBounds | null {
+  if (!v || typeof v !== 'object') return null
+  const r = v as Record<string, unknown>
+  const nums = ['x', 'y', 'width', 'height'] as const
+  if (!nums.every((k) => typeof r[k] === 'number' && Number.isFinite(r[k]))) return null
+  return { x: r.x as number, y: r.y as number, width: r.width as number, height: r.height as number }
+}
 
 function coerce(parsed: unknown): AppConfig {
   const out: AppConfig = { ...DEFAULT_CONFIG }
   if (parsed && typeof parsed === 'object') {
     const record = parsed as Record<string, unknown>
     for (const key of BOOLEAN_KEYS) {
-      if (typeof record[key] === 'boolean') out[key] = record[key] as boolean
+      if (typeof record[key] === 'boolean') (out[key] as boolean) = record[key] as boolean
     }
+    out.overlayBounds = coerceBounds(record['overlayBounds'])
   }
   return out
 }

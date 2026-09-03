@@ -10,6 +10,7 @@ import type { LiveSnapshot, LiveStatus } from './live-types'
 import type { StaticDataSummary } from './staticdata-types'
 import type { CoachAdvice } from './coach-types'
 import type { UpdateState, UpdaterInfo } from './update-types'
+import type { OverlayState } from './overlay-types'
 
 export interface WindowControls {
   minimize: () => Promise<void>
@@ -113,6 +114,19 @@ export interface UpdaterBridge {
   onState: (cb: (state: UpdateState) => void) => () => void
 }
 
+/**
+ * Pont overlay in-game. `setInteractive` pilote le click-through : l'overlay
+ * laisse passer les clics vers le jeu, sauf quand le curseur survole la carte.
+ */
+export interface OverlayBridge {
+  getState: () => Promise<OverlayState>
+  setEnabled: (enabled: boolean) => Promise<OverlayState>
+  toggle: () => Promise<OverlayState>
+  /** Appelé par la fenêtre overlay elle-même au survol / à la sortie de la carte. */
+  setInteractive: (interactive: boolean) => Promise<void>
+  onState: (cb: (state: OverlayState) => void) => () => void
+}
+
 export interface AppApi {
   windowControls: WindowControls
   lcu: LcuBridge
@@ -120,6 +134,7 @@ export interface AppApi {
   staticData: StaticDataBridge
   coach: CoachBridge
   updater: UpdaterBridge
+  overlay: OverlayBridge
 }
 
 /** Noms de canaux IPC (source unique de vérité main <-> preload). */
@@ -168,6 +183,12 @@ export const IpcChannels = {
   updateDownload: 'update:download',
   updateInstall: 'update:install',
   updateState: 'update:state',
+
+  overlayGetState: 'overlay:get-state',
+  overlaySetEnabled: 'overlay:set-enabled',
+  overlayToggle: 'overlay:toggle',
+  overlaySetInteractive: 'overlay:set-interactive',
+  overlayState: 'overlay:state',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]

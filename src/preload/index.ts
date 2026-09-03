@@ -5,6 +5,7 @@ import type { LiveSnapshot, LiveStatus } from '../shared/live-types'
 import type { StaticDataSummary } from '../shared/staticdata-types'
 import type { CoachAdvice } from '../shared/coach-types'
 import type { UpdateState } from '../shared/update-types'
+import type { OverlayState } from '../shared/overlay-types'
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
   const listener = (_event: IpcRendererEvent, payload: T): void => cb(payload)
@@ -74,6 +75,15 @@ const api: AppApi = {
     install: () => ipcRenderer.invoke(IpcChannels.updateInstall),
     onState: (cb: (state: UpdateState) => void) =>
       subscribe<UpdateState>(IpcChannels.updateState, cb),
+  },
+  overlay: {
+    getState: () => ipcRenderer.invoke(IpcChannels.overlayGetState),
+    setEnabled: (enabled: boolean) => ipcRenderer.invoke(IpcChannels.overlaySetEnabled, enabled),
+    toggle: () => ipcRenderer.invoke(IpcChannels.overlayToggle),
+    setInteractive: (interactive: boolean) =>
+      ipcRenderer.invoke(IpcChannels.overlaySetInteractive, interactive),
+    onState: (cb: (state: OverlayState) => void) =>
+      subscribe<OverlayState>(IpcChannels.overlayState, cb),
   },
 }
 

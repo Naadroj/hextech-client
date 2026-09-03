@@ -65,6 +65,22 @@ describe('Settings — Mise à jour', () => {
     await waitFor(() =>
       expect(screen.getByText(/version installée uniquement/i)).toBeInTheDocument(),
     )
-    expect(screen.queryByRole('button')).toBeNull()
+    // Aucune action de mise à jour (le bouton overlay, lui, reste disponible).
+    expect(
+      screen.queryByRole('button', { name: /vérifier|télécharger|redémarrer/i }),
+    ).toBeNull()
+  })
+})
+
+describe('Settings — Overlay', () => {
+  it('bascule l’overlay et reflète l’état', async () => {
+    const ctx = stubUpdater(base)
+    render(<Settings />)
+    const btn = await screen.findByRole('button', { name: /activer l['’]overlay/i })
+    await userEvent.click(btn)
+    expect(ctx.overlay.setEnabled).toHaveBeenCalledWith(true)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /désactiver l['’]overlay/i })).toBeInTheDocument(),
+    )
   })
 })

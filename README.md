@@ -78,6 +78,9 @@ le process principal. Vue **Coach** dans la nav.
 - [x] A4.3 — Squelette de build hi-elo (prior hybride) : agrégation Challenger
   par champion+rôle, repli patch N-1, publication CI + téléchargement client —
   voir `BUILDS.md`
+- [x] A7 — Overlay in-game : fenêtre transparente toujours au-dessus,
+  déplaçable, click-through hors survol. Réglages → « Overlay in-game », ou
+  `Ctrl+Maj+O`. **League en mode Sans bordure requis.**
 
 ## Note OneDrive
 

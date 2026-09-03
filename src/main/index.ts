@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { app, BrowserWindow, ipcMain, shell, Tray } from 'electron'
+import { app, BrowserWindow, globalShortcut, ipcMain, shell, Tray } from 'electron'
 import { IpcChannels } from '../shared/ipc'
 import { logger } from './logger'
 import { ConfigStore } from './config-store'
@@ -16,13 +16,20 @@ import { resolveBuildBook, refreshBuildBook } from './engine/build-book'
 import { registerCoachIpc } from './ipc/coach-ipc'
 import { Updater } from './updater'
 import { registerUpdateIpc } from './ipc/update-ipc'
+import { createOverlay, type Overlay } from './overlay'
+import { registerOverlayIpc } from './ipc/overlay-ipc'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 const RESOURCES = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources')
 const BUILD_DIR = app.isPackaged ? process.resourcesPath : join(__dirname, '../../build')
+/** Bundles renderer buildés (out/renderer) — `__dirname` = out/main. */
+const RENDERER_DIR = join(__dirname, '../renderer')
+/** Raccourci global d'affichage/masquage de l'overlay. */
+const OVERLAY_HOTKEY = 'CommandOrControl+Shift+O'
 
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
+let overlay: Overlay | null = null
 let quitting = false
 
 const config = new ConfigStore(join(app.getPath('userData'), 'config.json'))
@@ -191,6 +198,26 @@ if (!singleInstance) {
           getBuildBook: () => buildBook,
         })
         registerCoachIpc({ ipcMain, coach, getSender: () => win?.webContents ?? null })
+
+        // Overlay in-game : même conseil, relayé à sa propre fenêtre.
+        overlay = createOverlay({
+          config,
+          isDev,
+          rendererUrl: process.env['ELECTRON_RENDERER_URL'],
+          rendererDir: RENDERER_DIR,
+          preloadPath: join(__dirname, '../preload/index.mjs'),
+        })
+        registerOverlayIpc({
+          ipcMain,
+          overlay,
+          getSender: () => win?.webContents ?? null,
+        })
+        coach.on('advice', (advice) => overlay?.send(IpcChannels.coachAdvice, advice))
+        overlay.restore()
+
+        if (!globalShortcut.register(OVERLAY_HOTKEY, () => overlay?.toggle())) {
+          logger.warn(`Raccourci ${OVERLAY_HOTKEY} indisponible (déjà pris)`)
+        }
       })
       .catch((err) => logger.warn('Données statiques indisponibles :', String(err)))
 
@@ -222,6 +249,9 @@ if (!singleInstance) {
 
 app.on('before-quit', () => {
   quitting = true
+  globalShortcut.unregister(OVERLAY_HOTKEY)
+  overlay?.dispose()
+  overlay = null
 })
 
 app.on('window-all-closed', () => {

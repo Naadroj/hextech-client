@@ -39,6 +39,11 @@ Config : `electron-builder.yml`. L'installateur est **NSIS**, par utilisateur
   Analytics** (catalogue), et **GitHub Releases** (le `builds.json` pré-agrégé).
   Aucune donnée du joueur n'est envoyée. Coupe le réseau → l'app reste
   fonctionnelle avec le snapshot et le `builds.json` embarqués.
+- L'**overlay in-game** est une simple fenêtre Electron transparente toujours
+  au-dessus — **aucune injection, aucun hook**, elle lit les mêmes données
+  locales que le reste de l'app. Elle laisse passer les clics vers le jeu sauf
+  au survol de la carte. Nécessite League en mode **Sans bordure** (le plein
+  écran exclusif passe devant toute fenêtre). Désactivé par défaut.
 - Toutes les actions LCU (accepter un ready-check, pick/ban, etc.) restent
   derrière un **clic explicite** — jamais d'automatisation par timer.
 - Le Coach ne fait **que conseiller** : il n'achète rien, ne touche pas à

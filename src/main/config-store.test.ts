@@ -55,4 +55,20 @@ describe('ConfigStore', () => {
     a.closeToTray = !a.closeToTray
     expect(store.get('closeToTray')).toBe(DEFAULT_CONFIG.closeToTray)
   })
+
+  it('persiste et relit overlayBounds (objet, pas booléen)', () => {
+    const store = new ConfigStore(file)
+    store.set('overlayBounds', { x: 12, y: 34, width: 340, height: 260 })
+    expect(new ConfigStore(file).get('overlayBounds')).toEqual({
+      x: 12,
+      y: 34,
+      width: 340,
+      height: 260,
+    })
+  })
+
+  it('ignore un overlayBounds malformé', () => {
+    writeFileSync(dir + '/bad-bounds.json', JSON.stringify({ overlayBounds: { x: 'nope', y: 1 } }))
+    expect(new ConfigStore(dir + '/bad-bounds.json').get('overlayBounds')).toBeNull()
+  })
 })

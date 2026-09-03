@@ -1,15 +1,40 @@
 import { Button, Frame, Tag } from '../components/hextech'
 import { useUpdater } from '../lib/useUpdater'
+import { useOverlay } from '../lib/useOverlay'
 
 export function Settings() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl">Réglages</h1>
-        <p className="mt-1 text-sm text-parchment">Mises à jour de l'application.</p>
+        <p className="mt-1 text-sm text-parchment">Overlay in-game et mises à jour.</p>
       </div>
+      <OverlayPanel />
       <UpdatePanel />
     </div>
+  )
+}
+
+function OverlayPanel() {
+  const { state, setEnabled } = useOverlay()
+  return (
+    <Frame
+      title="Overlay in-game"
+      headerRight={<Tag tone={state.enabled ? 'cyan' : undefined}>{state.enabled ? 'Actif' : 'Inactif'}</Tag>}
+    >
+      <p className="text-sm text-parchment">
+        Affiche le conseil du Coach dans une petite fenêtre transparente par-dessus le jeu,
+        déplaçable à la souris. Raccourci : <span className="text-gold-100">Ctrl+Maj+O</span>.
+      </p>
+      <p className="mt-2 text-xs text-parchment">
+        League doit tourner en mode <span className="text-gold-100">Sans bordure</span> — le plein
+        écran exclusif passe devant toute fenêtre.
+      </p>
+      <div className="hx-divider" />
+      <Button onClick={() => void setEnabled(!state.enabled)}>
+        {state.enabled ? "Désactiver l'overlay" : "Activer l'overlay"}
+      </Button>
+    </Frame>
   )
 }
 

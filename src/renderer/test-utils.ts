@@ -4,6 +4,7 @@ import type {
   CoachBridge,
   LcuBridge,
   LiveBridge,
+  OverlayBridge,
   StaticDataBridge,
   UpdaterBridge,
 } from '@shared/ipc'
@@ -14,6 +15,8 @@ import type { CoachAdvice } from '@shared/coach-types'
 import { IDLE_ADVICE } from '@shared/coach-types'
 import type { UpdateState, UpdaterInfo } from '@shared/update-types'
 import { IDLE_UPDATE_STATE } from '@shared/update-types'
+import type { OverlayState } from '@shared/overlay-types'
+import { IDLE_OVERLAY_STATE } from '@shared/overlay-types'
 
 type WindowWithApp = { app?: AppApi }
 
@@ -44,6 +47,7 @@ export function stubLcuBridge(
   staticDataOverrides: Partial<StaticDataBridge> = {},
   coachOverrides: Partial<CoachBridge> = {},
   updaterOverrides: Partial<UpdaterBridge> = {},
+  overlayOverrides: Partial<OverlayBridge> = {},
 ) {
   const connectionCbs: ((info: ConnectionInfo) => void)[] = []
   const eventCbs: ((event: LcuEvent) => void)[] = []
@@ -52,6 +56,7 @@ export function stubLcuBridge(
   const staticUpdatedCbs: ((summary: StaticDataSummary) => void)[] = []
   const coachAdviceCbs: ((advice: CoachAdvice) => void)[] = []
   const updaterStateCbs: ((state: UpdateState) => void)[] = []
+  const overlayStateCbs: ((state: OverlayState) => void)[] = []
   const unsubscribe = vi.fn()
 
   // Fan-out : plusieurs abonnés possibles (comme le vrai preload).
@@ -64,6 +69,7 @@ export function stubLcuBridge(
       staticUpdatedCbs.forEach((cb) => cb(summary)),
     coachAdvice: (advice: CoachAdvice) => coachAdviceCbs.forEach((cb) => cb(advice)),
     updaterState: (state: UpdateState) => updaterStateCbs.forEach((cb) => cb(state)),
+    overlayState: (state: OverlayState) => overlayStateCbs.forEach((cb) => cb(state)),
   }
   const remove = <T>(arr: T[], item: T) => {
     const i = arr.indexOf(item)
@@ -172,6 +178,21 @@ export function stubLcuBridge(
     ...updaterOverrides,
   }
 
+  const overlay: OverlayBridge = {
+    getState: vi.fn(async () => ({ ...IDLE_OVERLAY_STATE })),
+    setEnabled: vi.fn(async (enabled: boolean) => ({ ...IDLE_OVERLAY_STATE, enabled })),
+    toggle: vi.fn(async () => ({ ...IDLE_OVERLAY_STATE, enabled: true })),
+    setInteractive: vi.fn(async () => {}),
+    onState: (cb) => {
+      overlayStateCbs.push(cb)
+      return () => {
+        unsubscribe()
+        remove(overlayStateCbs, cb)
+      }
+    },
+    ...overlayOverrides,
+  }
+
   ;(window as unknown as WindowWithApp).app = {
     windowControls: {
       minimize: vi.fn(async () => {}),
@@ -184,9 +205,10 @@ export function stubLcuBridge(
     staticData,
     coach,
     updater,
+    overlay,
   }
 
-  return { bridge, live, staticData, coach, updater, emitters, unsubscribe }
+  return { bridge, live, staticData, coach, updater, overlay, emitters, unsubscribe }
 }
 
 export function clearLcuBridge(): void {

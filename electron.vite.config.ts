@@ -24,7 +24,13 @@ export default defineConfig({
       },
     },
     build: {
-      rollupOptions: { input: { index: resolve('src/renderer/index.html') } },
+      rollupOptions: {
+        input: {
+          index: resolve('src/renderer/index.html'),
+          // Fenêtre overlay in-game (transparente, toujours au-dessus).
+          overlay: resolve('src/renderer/overlay.html'),
+        },
+      },
     },
     plugins: [react()],
   },
