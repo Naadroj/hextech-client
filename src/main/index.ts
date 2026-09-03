@@ -61,6 +61,17 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
+  // Le process de rendu meurt (crash natif, OOM, GPU) → fenêtre noire.
+  // On journalise et on recharge automatiquement pour éviter l'écran noir.
+  window.webContents.on('render-process-gone', (_e, details) => {
+    logger.warn('Renderer arrêté :', details.reason, details.exitCode)
+    if (details.reason !== 'clean-exit' && !window.isDestroyed()) window.reload()
+  })
+  window.webContents.on('unresponsive', () => logger.warn('Renderer ne répond plus'))
+  window.webContents.on('preload-error', (_e, path, err) =>
+    logger.warn('preload:', path, String(err)),
+  )
+
   if (isDev) {
     void window.loadURL(process.env['ELECTRON_RENDERER_URL'] as string)
   } else {
