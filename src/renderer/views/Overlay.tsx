@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CoachAdvice } from '@shared/coach-types'
+import { AxisBadge, AxisSwitch } from '../components/AxisSwitch'
 import { ItemIcon } from '../components/ItemIcon'
+import { useAxisSwitch } from '../lib/useAxisSwitch'
 import { useCoach } from '../lib/useCoach'
 import { useStaticData } from '../lib/useStaticData'
 import { getOverlay, setOverlayInteractive } from '../lib/overlayBridge'
@@ -83,6 +85,7 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
   const live = useCoach()
   const advice = injected ?? live
   const version = useStaticData().summary?.version ?? null
+  const axisSwitch = useAxisSwitch(advice)
   const cardRef = useRef<HTMLDivElement>(null)
   const draggingRef = useRef(false)
   // Mode réduit par défaut ; l'état vit côté main (persisté + pilote la taille
@@ -193,6 +196,7 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
                 <span className="h-2 w-2 rotate-45 bg-gold-800" />
               </span>
             )}
+            <AxisBadge axis={axisSwitch.axis} />
             {buttons}
           </div>
         ) : (
@@ -229,6 +233,12 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
                       </div>
                     </div>
                   </div>
+                  {axisSwitch.available && (
+                    <div onMouseDown={(e) => e.stopPropagation()}>
+                      <AxisSwitch value={axisSwitch.axis} onChange={axisSwitch.setAxis} dense />
+                    </div>
+                  )}
+
                   {primary.reasons[0] && (
                     <p className="text-[11px] leading-snug text-gold-100/80">• {primary.reasons[0]}</p>
                   )}

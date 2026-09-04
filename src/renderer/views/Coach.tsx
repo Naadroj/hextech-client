@@ -1,7 +1,9 @@
 import type { CoachAdvice } from '@shared/coach-types'
 import type { ItemRecommendation, Recommendation, SkeletonInfo } from '@shared/engine/recommend/types'
 import { Frame, Tag } from '../components/hextech'
+import { AxisSwitch } from '../components/AxisSwitch'
 import { ItemIcon } from '../components/ItemIcon'
+import { useAxisSwitch } from '../lib/useAxisSwitch'
 import { useCoach } from '../lib/useCoach'
 import { useStaticData } from '../lib/useStaticData'
 
@@ -126,6 +128,7 @@ function BuildPath({ rec, version }: { rec: Recommendation; version: string | nu
 
 export function CoachView({ advice }: { advice: CoachAdvice }) {
   const version = useStaticData().summary?.version ?? null
+  const axisSwitch = useAxisSwitch(advice)
 
   if (advice.status === 'idle' || !advice.self || !advice.threat) {
     return (
@@ -165,6 +168,20 @@ export function CoachView({ advice }: { advice: CoachAdvice }) {
       >
         {rec?.primary ? (
           <div className="space-y-5">
+            {axisSwitch.available && (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-display text-[10px] uppercase tracking-hexwide text-gold-700">
+                  Axe de dégâts
+                </span>
+                <AxisSwitch value={axisSwitch.axis} onChange={axisSwitch.setAxis} />
+                <span className="text-xs text-parchment">
+                  {axisSwitch.axis
+                    ? 'Build forcé — les items neutres restent proposés.'
+                    : 'Déduit de tes items ; ce champion se joue AD et AP.'}
+                </span>
+              </div>
+            )}
+
             <ItemRow item={rec.primary} primary version={version} />
 
             {rec.alternatives.length > 0 && (
