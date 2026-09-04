@@ -1,3 +1,4 @@
+import type { BuildAxis } from './build-types'
 import type { Recommendation } from './engine/recommend/types'
 
 /**
@@ -35,6 +36,16 @@ export interface CoachAdvice {
     primaryFed: number
   } | null
   recommendation: Recommendation | null
+  /**
+   * Axe de degats force par l'utilisateur (`null` = auto : deduit de
+   * l'inventaire). Reinitialise a chaque nouvelle partie.
+   */
+  axisOverride: BuildAxis | null
+  /**
+   * `true` si le squelette a deux variantes d'axe pour ce champion+role — donc
+   * si le switch AD/AP a un sens a afficher.
+   */
+  axisSwitchAvailable: boolean
 }
 
 export const IDLE_ADVICE: CoachAdvice = {
@@ -45,4 +56,6 @@ export const IDLE_ADVICE: CoachAdvice = {
   self: null,
   threat: null,
   recommendation: null,
+  axisOverride: null,
+  axisSwitchAvailable: false,
 }

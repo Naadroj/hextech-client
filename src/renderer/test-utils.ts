@@ -154,6 +154,7 @@ export function stubLcuBridge(
 
   const coach: CoachBridge = {
     getAdvice: vi.fn(async () => IDLE_ADVICE),
+    setAxis: vi.fn(async () => IDLE_ADVICE),
     onAdvice: (cb) => {
       coachAdviceCbs.push(cb)
       return () => {
@@ -326,6 +327,8 @@ export function makeCoachAdvice(over: Partial<CoachAdvice> = {}): CoachAdvice {
         weightProfile: 'carry',
       },
     },
+    axisOverride: null,
+    axisSwitchAvailable: false,
     ...over,
   }
 }

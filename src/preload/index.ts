@@ -66,6 +66,8 @@ const api: AppApi = {
   },
   coach: {
     getAdvice: () => ipcRenderer.invoke(IpcChannels.coachGetAdvice),
+    setAxis: (axis: 'physical' | 'magic' | null) =>
+      ipcRenderer.invoke(IpcChannels.coachSetAxis, axis),
     onAdvice: (cb: (advice: CoachAdvice) => void) =>
       subscribe<CoachAdvice>(IpcChannels.coachAdvice, cb),
   },

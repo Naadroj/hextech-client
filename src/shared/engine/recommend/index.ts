@@ -1,11 +1,12 @@
 import type { StaticData } from '../../staticdata-types'
-import type { BuildBook } from '../../build-types'
+import type { BuildAxis, BuildBook } from '../../build-types'
 import type { GameAssessment } from '../context'
 import { generateCandidates } from './candidates'
 import { representativeTarget } from './target'
 import { contextWeights } from './weights'
 import { scoreItem } from './score'
-import { inferCommittedAxis } from './committed-axis'
+import { inferCommittedAxis, isOffCommittedAxis } from './committed-axis'
+import { itemIntent } from './categories'
 import { reasonsFor, reasonsForBoots, reasonsForComponent } from './explain'
 import type { ItemRecommendation, Recommendation } from './types'
 
@@ -30,10 +31,16 @@ const pct = (v: number): string => `${Math.round(v * 100)} %`
 /** Seuil de sévérité à partir duquel on envisage une reco de composant défensif. */
 const COMPONENT_SEVERITY_GATE = 0.55
 
-export function recommend(a0: GameAssessment, sd: StaticData, book?: BuildBook): Recommendation {
-  // Axe déjà engagé par l'inventaire (AD/AP) → on l'attache à une copie de
-  // l'évaluation, sans muter l'objet du caller.
-  const committedAxis = inferCommittedAxis(a0, sd)
+export function recommend(
+  a0: GameAssessment,
+  sd: StaticData,
+  book?: BuildBook,
+  /** Axe forcé par l'utilisateur ; prime sur la déduction par l'inventaire. */
+  axisOverride?: BuildAxis | null,
+): Recommendation {
+  // Axe déjà engagé par l'inventaire (AD/AP), sauf si l'utilisateur a tranché.
+  // On l'attache à une copie de l'évaluation, sans muter l'objet du caller.
+  const committedAxis = axisOverride ?? inferCommittedAxis(a0, sd)
   const a: GameAssessment = committedAxis
     ? { ...a0, self: { ...a0.self, committedAxis } }
     : a0
@@ -42,7 +49,14 @@ export function recommend(a0: GameAssessment, sd: StaticData, book?: BuildBook):
   const weights = contextWeights(a)
   const { legendaries, boots, components, needsBoots } = generateCandidates(a, sd)
 
-  const scored = legendaries
+  // Axe forcé : on retire les items de l'axe opposé du slot principal. Les items
+  // neutres (armure, RM, antisoin, QSS, stase…) n'appartiennent à aucun axe et
+  // restent proposables — c'est souvent eux la bonne réponse situationnelle.
+  const eligible = axisOverride
+    ? legendaries.filter((item) => !isOffCommittedAxis(itemIntent(item), axisOverride))
+    : legendaries
+
+  const scored = (eligible.length > 0 ? eligible : legendaries)
     .map((item) => {
       const s = scoreItem(item, a, target, weights, sd, 'legendary', book)
       s.reasons = reasonsFor(s, item, a, weights, target, book)
@@ -77,7 +91,7 @@ export function recommend(a0: GameAssessment, sd: StaticData, book?: BuildBook):
   }
 
   // Chemin de build hi-elo complet (au-delà du prochain item) + méta squelette.
-  const rb = book?.getBuild(a.self.slug, a.self.role)
+  const rb = book?.getBuild(a.self.slug, a.self.role, committedAxis ?? undefined)
   const ownedIds = new Set(a.self.items)
   const buildPath = (rb?.core ?? [])
     .slice()

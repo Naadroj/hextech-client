@@ -49,8 +49,18 @@ export interface BuildItem {
   avgSlot: number
 }
 
+/** Axe de dégâts d'une variante de build (champions jouables AD **ou** AP). */
+export type BuildAxis = 'physical' | 'magic'
+
 export interface RoleBuild {
   role: BuildRole
+  /**
+   * Variante d'axe. Absent = entrée **combinée** (tous les échantillons du
+   * couple), utilisée en mode « auto ». Présent = build des seuls joueurs qui
+   * sont allés de ce côté — n'existe que pour les champions réellement
+   * bimodaux (Shaco AD vs AP), pas pour les hybrides mono-chemin (Kaïsa).
+   */
+  axis?: BuildAxis
   /** Nombre d'échantillons (joueur × partie) agrégés. */
   games: number
   /**
@@ -100,8 +110,13 @@ export interface BuildBook {
   readonly sampleGames: number
   /** Nombre de couples champion+rôle couverts. */
   readonly entryCount: number
-  /** `slug` insensible à la casse/ponctuation ; `role` Riot ou InferredRole. */
-  getBuild(slug: string, role: string): RoleBuild | undefined
+  /**
+   * `slug` insensible à la casse/ponctuation ; `role` Riot ou InferredRole.
+   * `axis` sélectionne une variante si elle existe, sinon l'entrée combinée.
+   */
+  getBuild(slug: string, role: string, axis?: BuildAxis): RoleBuild | undefined
+  /** `true` si le couple a deux variantes d'axe (→ proposer le switch AD/AP). */
+  hasAxisVariants(slug: string, role: string): boolean
 }
 
 const norm = (s: string): string => s.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -112,29 +127,48 @@ export const EMPTY_BUILD_BOOK: BuildBook = {
   sampleGames: 0,
   entryCount: 0,
   getBuild: () => undefined,
+  hasAxisVariants: () => false,
 }
 
 export function indexBuildBook(file: BuildBookFile): BuildBook {
+  /** Entrées combinées (sans `axis`). */
   const byKey = new Map<string, RoleBuild>()
+  /** Variantes d'axe : `slug|ROLE|axis`. */
+  const byAxis = new Map<string, RoleBuild>()
   /** slug → entrée poolée (repli quand le rôle exact manque). */
   const pooled = new Map<string, RoleBuild>()
   for (const champ of file.builds ?? []) {
     for (const rb of champ.roles ?? []) {
-      byKey.set(`${norm(champ.slug)}|${rb.role}`, rb)
+      const base = `${norm(champ.slug)}|${rb.role}`
+      if (rb.axis) byAxis.set(`${base}|${rb.axis}`, rb)
+      else byKey.set(base, rb)
       if (rb.roleAgnostic) pooled.set(norm(champ.slug), rb)
     }
   }
+  const variantsFor = (s: string, r: BuildRole): number =>
+    (byAxis.has(`${s}|${r}|physical`) ? 1 : 0) + (byAxis.has(`${s}|${r}|magic`) ? 1 : 0)
+
   return {
     patch: file.patch,
     sampleGames: file.sampleGames,
     entryCount: byKey.size,
-    getBuild: (slug, role) => {
+    hasAxisVariants: (slug, role) => {
+      const r = normalizeBuildRole(role)
+      return !!r && variantsFor(norm(slug), r) === 2
+    },
+    getBuild: (slug, role, axis) => {
       const s = norm(slug)
       const r = normalizeBuildRole(role)
-      const exact = r ? byKey.get(`${s}|${r}`) : undefined
+      if (!r) return undefined
+      // Variante d'axe demandée et disponible → elle prime.
+      if (axis) {
+        const variant = byAxis.get(`${s}|${r}|${axis}`)
+        if (variant) return variant
+      }
+      const exact = byKey.get(`${s}|${r}`)
       if (exact) return exact
       const p = pooled.get(s)
-      if (!p || !r) return undefined
+      if (!p) return undefined
       // Repli poolé : seulement si le rôle demandé fait partie des rôles observés
       // (ou `pooledRoles` absent = ancien format → tolérant).
       return !p.pooledRoles || p.pooledRoles.includes(r) ? p : undefined

@@ -1,10 +1,11 @@
 import { IpcChannels } from '../../shared/ipc'
+import type { BuildAxis } from '../../shared/build-types'
 import type { CoachAdvice } from '../../shared/coach-types'
 import type { Coach } from '../engine/coach'
 
 /**
- * Surface IPC du Coach. **Lecture seule** : un `invoke` (dernier conseil) + un
- * canal poussé (`coach:advice`).
+ * Surface IPC du Coach : deux `invoke` (dernier conseil, forçage de l'axe) + un
+ * canal poussé (`coach:advice`). Aucune de ces actions ne sort de la machine.
  */
 
 export interface IpcMainLike {
@@ -36,9 +37,17 @@ export function registerCoachIpc(deps: RegisterCoachIpcDeps): () => void {
   coach.on('advice', onAdvice)
 
   ipcMain.handle(IpcChannels.coachGetAdvice, () => coach.advice)
+  ipcMain.handle(IpcChannels.coachSetAxis, (_e, ...args) => {
+    const axis = args[0]
+    // Le renderer est de confiance mais on garde la surface IPC stricte.
+    const valid: BuildAxis | null =
+      axis === 'physical' || axis === 'magic' ? axis : null
+    return coach.setAxisOverride(valid)
+  })
 
   return () => {
     coach.off('advice', onAdvice)
     ipcMain.removeHandler(IpcChannels.coachGetAdvice)
+    ipcMain.removeHandler(IpcChannels.coachSetAxis)
   }
 }

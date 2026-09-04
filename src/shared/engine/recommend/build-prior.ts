@@ -62,7 +62,7 @@ export function buildPrior(
   kind: ItemKind,
 ): BuildPrior {
   if (!book) return NONE
-  const rb = book.getBuild(a.self.slug, a.self.role)
+  const rb = book.getBuild(a.self.slug, a.self.role, a.self.committedAxis)
   if (!rb || rb.games < BUILD_MIN_GAMES) return NONE
 
   // Le squelette d'un champion flex mélange builds AD et AP : ne pas pousser un

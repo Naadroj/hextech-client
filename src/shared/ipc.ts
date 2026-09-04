@@ -9,6 +9,7 @@ import type { ConnectionInfo, LcuEvent, RankedStats } from './lcu-types'
 import type { LiveSnapshot, LiveStatus } from './live-types'
 import type { StaticDataSummary } from './staticdata-types'
 import type { CoachAdvice } from './coach-types'
+import type { BuildAxis } from './build-types'
 import type { UpdateState, UpdaterInfo } from './update-types'
 import type { OverlayState } from './overlay-types'
 import type { FeedbackDraft, FeedbackState } from './feedback-types'
@@ -95,6 +96,8 @@ export interface StaticDataBridge {
  */
 export interface CoachBridge {
   getAdvice: () => Promise<CoachAdvice>
+  /** Force l'axe de degats (`null` = auto). Renvoie le conseil recalcule. */
+  setAxis: (axis: BuildAxis | null) => Promise<CoachAdvice>
   onAdvice: (cb: (advice: CoachAdvice) => void) => () => void
 }
 
@@ -197,6 +200,7 @@ export const IpcChannels = {
 
   coachGetAdvice: 'coach:get-advice',
   coachAdvice: 'coach:advice',
+  coachSetAxis: 'coach:set-axis',
 
   updateGetInfo: 'update:get-info',
   updateCheck: 'update:check',

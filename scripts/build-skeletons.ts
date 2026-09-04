@@ -14,8 +14,15 @@
 import { appendFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { RAW_DIR, ROOT, loadStaticData, previousPatch, rawMatchIds, readRaw } from './lib/local'
-import { aggregate, underTarget, type Acc } from './lib/aggregate'
-import { type BuildBookFile, type BuildItem, type BuildRole, type ChampionBuild, type RoleBuild } from '../src/shared/build-types'
+import { AXIS_MINORITY_SHARE, aggregate, underTarget, type Acc } from './lib/aggregate'
+import {
+  type BuildAxis,
+  type BuildBookFile,
+  type BuildItem,
+  type BuildRole,
+  type ChampionBuild,
+  type RoleBuild,
+} from '../src/shared/build-types'
 
 const minGames = Number(process.argv[2] ?? 5)
 const coreMin = Number(process.argv[3] ?? 0.3)
@@ -62,7 +69,11 @@ function merge(base: Acc | undefined, extra: Acc | undefined): Acc {
 function toRoleBuild(role: BuildRole, acc: Acc): RoleBuild | null {
   const games = acc.games
   const legend: BuildItem[] = [...acc.legend.entries()]
-    .map(([id, s]) => ({ id, pickRate: round(s.count / games, 3), avgSlot: round(s.slotSum / s.count, 2) }))
+    .map(([id, s]) => ({
+      id,
+      pickRate: round(s.count / games, 3),
+      avgSlot: round(s.slotSum / s.count, 2),
+    }))
     .sort((x, y) => y.pickRate - x.pickRate)
   const core = legend.filter((x) => x.pickRate >= coreMin)
   const situational = legend.filter((x) => x.pickRate >= sitMin && x.pickRate < coreMin).slice(0, 8)
@@ -80,11 +91,13 @@ function toRoleBuild(role: BuildRole, acc: Acc): RoleBuild | null {
   return { role, games, boots, core, situational, ...(starters.length ? { starters } : {}) }
 }
 
-const allKeys = new Set([...curMap.keys(), ...prevMap.keys()])
+// Les clés `champ|ROLE#axe` sont des variantes, traitées avec leur couple parent.
+const allKeys = new Set([...curMap.keys(), ...prevMap.keys()].filter((k) => !k.includes('#')))
 const champs = new Map<string, ChampionBuild>()
 let entryCount = 0
 let blendedCount = 0
 let agnosticCount = 0
+let axisVariantCount = 0
 
 // ── Entrées par rôle ──────────────────────────────────────────────────────
 const qualifiedSlugRoles = new Set<string>()
@@ -107,6 +120,31 @@ for (const key of [...allKeys].sort()) {
   }
   const cb = champs.get(slug) ?? { slug, roles: [] }
   cb.roles.push(rb)
+
+  // ── Variantes d'axe (champions bimodaux : Shaco AD vs AP) ───────────────
+  // On n'émet que si les deux côtés tiennent debout ET que le minoritaire pèse
+  // assez — sinon c'est un champion mono-chemin (Kaïsa) et scinder n'a pas de
+  // sens.
+  const variants: { axis: BuildAxis; acc: Acc }[] = []
+  for (const axis of ['physical', 'magic'] as BuildAxis[]) {
+    const vk = `${key}#${axis}`
+    const v = curMap.get(vk) ?? (prevMap.has(vk) ? prevMap.get(vk) : undefined)
+    if (v && v.games >= minGames) variants.push({ axis, acc: v })
+  }
+  if (variants.length === 2) {
+    const total = variants[0].acc.games + variants[1].acc.games
+    const minority = Math.min(variants[0].acc.games, variants[1].acc.games) / total
+    if (minority >= AXIS_MINORITY_SHARE) {
+      for (const v of variants) {
+        const vrb = toRoleBuild(role, v.acc)
+        if (!vrb) continue
+        vrb.axis = v.axis
+        cb.roles.push(vrb)
+        axisVariantCount += 1
+      }
+    }
+  }
+
   champs.set(slug, cb)
   entryCount += 1
   qualifiedSlugRoles.add(slug)
@@ -123,6 +161,7 @@ for (const slug of slugsSeen) {
   const rolesGames = new Map<BuildRole, number>()
   for (const map of [curMap, prevMap]) {
     for (const [key, acc] of map) {
+      if (key.includes('#')) continue // variante d'axe : déjà comptée dans la combinée
       const [s, roleRaw] = key.split('|')
       if (s !== slug) continue
       rolesGames.set(roleRaw as BuildRole, (rolesGames.get(roleRaw as BuildRole) ?? 0) + acc.games)
@@ -133,9 +172,12 @@ for (const slug of slugsSeen) {
 
   let pooled: Acc | undefined
   let usedPrev = false
-  for (const [map, isPrev] of [[curMap, false], [prevMap, true]] as const) {
+  for (const [map, isPrev] of [
+    [curMap, false],
+    [prevMap, true],
+  ] as const) {
     for (const [key, acc] of map) {
-      if (key.split('|')[0] !== slug) continue
+      if (key.includes('#') || key.split('|')[0] !== slug) continue
       pooled = merge(pooled, acc)
       if (isPrev) usedPrev = true
     }
@@ -177,17 +219,32 @@ writeFileSync(resolve(ROOT, 'bench/coverage.json'), JSON.stringify(coverage, nul
 
 const lines = [
   `Parties : ${JSON.stringify(Object.fromEntries(matchesByPatch))} (courant ${patch}${prevPatch ? `, repli ${prevPatch}` : ''})`,
-  `${entryCount} entrées (${blendedCount} complétées N-1, ${agnosticCount} tous-rôles) — ${curMap.size} couples champion+rôle vus`,
+  `${entryCount} entrées (${blendedCount} complétées N-1, ${agnosticCount} tous-rôles) · ${axisVariantCount} variantes d'axe AD/AP`,
   `Couverture ≥ ${TARGET} parties : ${complete}/${curMap.size} couples · ${incomplete.length} réels sous le seuil`,
 ]
 console.log(lines.join('\n'))
 if (incomplete.length) {
-  console.log('  incomplets : ' + incomplete.slice(0, 30).map((x) => `${x.key}(${x.games})`).join(', ') + (incomplete.length > 30 ? ' …' : ''))
+  console.log(
+    '  incomplets : ' +
+      incomplete
+        .slice(0, 30)
+        .map((x) => `${x.key}(${x.games})`)
+        .join(', ') +
+      (incomplete.length > 30 ? ' …' : ''),
+  )
 }
 if (process.env.GITHUB_STEP_SUMMARY) {
   appendFileSync(
     process.env.GITHUB_STEP_SUMMARY,
-    ['## Squelette de build', ...lines.map((l) => `- ${l}`), '', '```', incomplete.map((x) => `${x.key}  ${x.games}`).join('\n'), '```', ''].join('\n'),
+    [
+      '## Squelette de build',
+      ...lines.map((l) => `- ${l}`),
+      '',
+      '```',
+      incomplete.map((x) => `${x.key}  ${x.games}`).join('\n'),
+      '```',
+      '',
+    ].join('\n'),
   )
 }
 console.log(`\n→ resources/builds.json  ·  bench/coverage.json`)
