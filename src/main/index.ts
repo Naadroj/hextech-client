@@ -20,6 +20,8 @@ import { createOverlay, type Overlay } from './overlay'
 import { registerOverlayIpc } from './ipc/overlay-ipc'
 import { createFeedback, FeedbackStore, type Feedback } from './feedback'
 import { registerFeedbackIpc } from './ipc/feedback-ipc'
+import { createHistoryRecorder, HistoryStore } from './history'
+import { registerHistoryIpc } from './ipc/history-ipc'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 const RESOURCES = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources')
@@ -208,6 +210,15 @@ if (!singleInstance) {
         })
         registerCoachIpc({ ipcMain, coach, getSender: () => win?.webContents ?? null })
 
+        // Historique local des propositions : une partie = un fichier JSONL.
+        const historyStore = new HistoryStore(join(app.getPath('userData'), 'history'))
+        const history = createHistoryRecorder({
+          store: historyStore,
+          getPatch: () => patchOf(staticData.summary().version),
+        })
+        coach.on('advice', (advice) => history.record(advice))
+        registerHistoryIpc({ ipcMain, store: historyStore })
+
         // Overlay in-game : même conseil, relayé à sa propre fenêtre.
         overlay = createOverlay({
           config,
@@ -232,6 +243,7 @@ if (!singleInstance) {
           getLive: () => live.snapshot?.data ?? null,
           getAdvice: () => coach.advice,
           getPatch: () => patchOf(staticData.summary().version),
+          getHistory: () => history.currentSteps(),
         })
         registerFeedbackIpc({
           ipcMain,

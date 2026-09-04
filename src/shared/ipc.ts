@@ -10,6 +10,7 @@ import type { LiveSnapshot, LiveStatus } from './live-types'
 import type { StaticDataSummary } from './staticdata-types'
 import type { CoachAdvice } from './coach-types'
 import type { BuildAxis } from './build-types'
+import type { HistoryGame, HistoryGameSummary } from './history-types'
 import type { UpdateState, UpdaterInfo } from './update-types'
 import type { OverlayState } from './overlay-types'
 import type { FeedbackDraft, FeedbackState } from './feedback-types'
@@ -94,6 +95,15 @@ export interface StaticDataBridge {
  * Pont Coach : le moteur de recommandation d'items (A2→A4) tourne dans le
  * process principal ; ce pont ne transporte que le conseil résultant.
  */
+/**
+ * Historique local des propositions. **Lecture seule** : rien ne s'écrit depuis
+ * le renderer, et rien ne sort de la machine.
+ */
+export interface HistoryBridge {
+  list: () => Promise<HistoryGameSummary[]>
+  get: (id: string) => Promise<HistoryGame | null>
+}
+
 export interface CoachBridge {
   getAdvice: () => Promise<CoachAdvice>
   /** Force l'axe de degats (`null` = auto). Renvoie le conseil recalcule. */
@@ -155,6 +165,7 @@ export interface AppApi {
   live: LiveBridge
   staticData: StaticDataBridge
   coach: CoachBridge
+  history: HistoryBridge
   updater: UpdaterBridge
   overlay: OverlayBridge
   feedback: FeedbackBridge
@@ -201,6 +212,9 @@ export const IpcChannels = {
   coachGetAdvice: 'coach:get-advice',
   coachAdvice: 'coach:advice',
   coachSetAxis: 'coach:set-axis',
+
+  historyList: 'history:list',
+  historyGet: 'history:get',
 
   updateGetInfo: 'update:get-info',
   updateCheck: 'update:check',

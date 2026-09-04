@@ -1,3 +1,4 @@
+import type { HistoryStep } from './history-types'
 import type { LiveGameData } from './live-types'
 
 /**
@@ -61,6 +62,12 @@ export interface FeedbackReport {
       expectedCategory: string
     }
     live: LiveGameData
+    /**
+     * Fil des propositions de la partie jusqu'au clic. Absent = pas
+     * d'historique disponible. Vit dans `snapshot` (jsonb) exprès : le
+     * rejeu golden n'en a pas besoin et la table n'a pas à changer.
+     */
+    history?: HistoryStep[]
   }
 }
 

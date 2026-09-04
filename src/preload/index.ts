@@ -71,6 +71,10 @@ const api: AppApi = {
     onAdvice: (cb: (advice: CoachAdvice) => void) =>
       subscribe<CoachAdvice>(IpcChannels.coachAdvice, cb),
   },
+  history: {
+    list: () => ipcRenderer.invoke(IpcChannels.historyList),
+    get: (id: string) => ipcRenderer.invoke(IpcChannels.historyGet, id),
+  },
   updater: {
     getInfo: () => ipcRenderer.invoke(IpcChannels.updateGetInfo),
     check: () => ipcRenderer.invoke(IpcChannels.updateCheck),

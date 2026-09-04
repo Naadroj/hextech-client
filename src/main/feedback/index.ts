@@ -6,6 +6,7 @@ import { insertReports, isConfigured, type Poster } from './supabase'
 import type { ConfigStore } from '../config-store'
 import type { LiveGameData } from '../../shared/live-types'
 import type { CoachAdvice } from '../../shared/coach-types'
+import type { HistoryStep } from '../../shared/history-types'
 import type {
   FeedbackDraft,
   FeedbackReport,
@@ -38,6 +39,8 @@ export interface FeedbackDeps {
   getAdvice: () => CoachAdvice
   /** Patch du catalogue statique courant. */
   getPatch: () => string
+  /** Fil des propositions de la partie en cours (optionnel). */
+  getHistory?: () => HistoryStep[]
   now?: () => number
   post?: Poster
 }
@@ -105,6 +108,7 @@ export class Feedback extends EventEmitter {
     if (last !== undefined && now - last < DEDUPE_MS) return false
     this.recent.set(key, now)
 
+    const history = this.deps.getHistory?.() ?? []
     const rec = advice.recommendation
     const picked =
       draft.itemRank === 0 ? rec?.primary : (rec?.alternatives[draft.itemRank - 1] ?? null)
@@ -136,6 +140,7 @@ export class Feedback extends EventEmitter {
           expectedCategory: 'signalé-incohérent',
         },
         live,
+        ...(history.length > 0 ? { history } : {}),
       },
     }
 

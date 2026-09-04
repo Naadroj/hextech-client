@@ -79,6 +79,31 @@ describe('Feedback.report', () => {
     expect(r.snapshot.meta.atSeconds).toBe(600)
   })
 
+  it('joint le fil des propositions de la partie quand il existe', () => {
+    const steps = [
+      {
+        t: 300,
+        at: '2026-09-04T10:00:00.000Z',
+        gold: 900,
+        level: 6,
+        completedItems: 0,
+        axis: null,
+        primary: { itemId: 3078, name: 'Trinité', goldTotal: 3333, affordable: false, reason: 'x' },
+        alternatives: [],
+        boots: null,
+      },
+    ]
+    const { fb, store } = setup({ getHistory: () => steps })
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })
+    expect(store.readAll()[0].snapshot.history).toEqual(steps)
+  })
+
+  it('omet le champ historique plutôt que d’envoyer un tableau vide', () => {
+    const { fb, store } = setup({ getHistory: () => [] })
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })
+    expect(store.readAll()[0].snapshot).not.toHaveProperty('history')
+  })
+
   it('génère et réutilise un installId anonyme', () => {
     const { fb, store } = setup()
     fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })

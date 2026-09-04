@@ -2,6 +2,7 @@ import type { CoachAdvice } from '@shared/coach-types'
 import type { ItemRecommendation, Recommendation, SkeletonInfo } from '@shared/engine/recommend/types'
 import { Frame, Tag } from '../components/hextech'
 import { AxisSwitch } from '../components/AxisSwitch'
+import { HistoryPanel } from '../components/HistoryPanel'
 import { ItemIcon } from '../components/ItemIcon'
 import { useAxisSwitch } from '../lib/useAxisSwitch'
 import { useCoach } from '../lib/useCoach'
@@ -132,12 +133,15 @@ export function CoachView({ advice }: { advice: CoachAdvice }) {
 
   if (advice.status === 'idle' || !advice.self || !advice.threat) {
     return (
-      <Frame title="Coach" className="mx-auto max-w-2xl">
-        <p className="text-parchment">
-          Aucune partie en cours. Le coach s'active automatiquement dès qu'une partie démarre et
-          propose le prochain item selon l'état de la partie.
-        </p>
-      </Frame>
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Frame title="Coach">
+          <p className="text-parchment">
+            Aucune partie en cours. Le coach s'active automatiquement dès qu'une partie démarre et
+            propose le prochain item selon l'état de la partie.
+          </p>
+        </Frame>
+        <HistoryPanel version={version} />
+      </div>
     )
   }
 
@@ -239,6 +243,8 @@ export function CoachView({ advice }: { advice: CoachAdvice }) {
           )}
         </div>
       </Frame>
+
+      <HistoryPanel version={version} reloadKey={advice.self.slug} />
     </div>
   )
 }

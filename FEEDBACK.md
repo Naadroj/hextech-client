@@ -18,6 +18,12 @@ Champion, rôle, niveau, or, items des 10 joueurs, menace, l'item contesté, la
 catégorie optionnelle, la version de l'app et le patch — plus un **UUID
 d'installation anonyme**. Aucun pseudo, aucun Riot ID, aucun puuid.
 
+S'y ajoute le **fil des propositions de la partie en cours** (30 dernières au
+plus), dans `snapshot.history`. C'est ce qui rend un signalement lisible : sans
+lui on voit l'item contesté, avec lui on voit *le chemin* qui y a mené — l'or,
+le niveau et l'axe à chaque étape. Il vit dans la colonne `snapshot` (jsonb),
+donc rien à migrer côté table, et le rejeu golden l'ignore.
+
 Activé par défaut ; interrupteur dans **Réglages → Signalements**. Le clic écrit
 d'abord dans une file locale (`%APPDATA%/hextech-client/feedback/pending.jsonl`)
 — il ne dépend jamais du réseau — puis l'envoi part au lancement et toutes les

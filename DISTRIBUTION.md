@@ -40,10 +40,15 @@ Config : `electron-builder.yml`. L'installateur est **NSIS**, par utilisateur
   reste fonctionnelle avec le snapshot et le `builds.json` embarqués.
 - **Une seule donnée sort de l'app, et seulement sur action explicite** : le
   bouton **☟** de l'overlay envoie un *signalement* « cet item n'est pas
-  cohérent », avec l'état de la partie (champions, items, niveaux, or) et un
-  **UUID d'installation anonyme** — aucun pseudo, aucun identifiant Riot.
-  Activé par défaut, désactivable dans **Réglages → Signalements**. Détail complet
-  et schéma de la table : `FEEDBACK.md`.
+  cohérent », avec l'état de la partie (champions, items, niveaux, or), le fil
+  des propositions de cette partie-là et un **UUID d'installation anonyme** —
+  aucun pseudo, aucun identifiant Riot. Activé par défaut, désactivable dans
+  **Réglages → Signalements**. Détail complet et schéma de la table :
+  `FEEDBACK.md`.
+- L'**historique des propositions** (20 dernières parties, dans
+  `%APPDATA%/hextech-client/history/`) est **purement local** : il se lit dans
+  l'onglet Coach et ne part sur le réseau que s'il est joint à un signalement,
+  c'est-à-dire jamais sans un clic sur ☟.
 - L'**overlay in-game** est une simple fenêtre Electron transparente toujours
   au-dessus — **aucune injection, aucun hook**, elle lit les mêmes données
   locales que le reste de l'app. Elle laisse passer les clics vers le jeu sauf

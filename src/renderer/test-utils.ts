@@ -5,6 +5,7 @@ import type {
   LcuBridge,
   LiveBridge,
   FeedbackBridge,
+  HistoryBridge,
   OverlayBridge,
   StaticDataBridge,
   UpdaterBridge,
@@ -52,6 +53,7 @@ export function stubLcuBridge(
   updaterOverrides: Partial<UpdaterBridge> = {},
   overlayOverrides: Partial<OverlayBridge> = {},
   feedbackOverrides: Partial<FeedbackBridge> = {},
+  historyOverrides: Partial<HistoryBridge> = {},
 ) {
   const connectionCbs: ((info: ConnectionInfo) => void)[] = []
   const eventCbs: ((event: LcuEvent) => void)[] = []
@@ -165,6 +167,12 @@ export function stubLcuBridge(
     ...coachOverrides,
   }
 
+  const history: HistoryBridge = {
+    list: vi.fn(async () => []),
+    get: vi.fn(async () => null),
+    ...historyOverrides,
+  }
+
   const DEFAULT_UPDATER_INFO: UpdaterInfo = {
     currentVersion: '0.1.0',
     supported: false,
@@ -228,12 +236,13 @@ export function stubLcuBridge(
     live,
     staticData,
     coach,
+    history,
     updater,
     overlay,
     feedback,
   }
 
-  return { bridge, live, staticData, coach, updater, overlay, feedback, emitters, unsubscribe }
+  return { bridge, live, staticData, coach, history, updater, overlay, feedback, emitters, unsubscribe }
 }
 
 export function clearLcuBridge(): void {
