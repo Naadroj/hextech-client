@@ -140,7 +140,12 @@ describe('Feedback.push — envoi manuel', () => {
     const { fb, post } = setup()
     fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
     // Le module lit ses identifiants à l'import : ce build n'en a pas.
-    expect(await fb.push()).toEqual({ sent: 0, remaining: 1, error: 'not-configured' })
+    expect(await fb.push()).toEqual({
+      sent: 0,
+      remaining: 1,
+      error: 'not-configured',
+      detail: null,
+    })
     expect(post).not.toHaveBeenCalled()
   })
 
@@ -153,7 +158,7 @@ describe('Feedback.push — envoi manuel', () => {
 
   it('file vide : envoi sans effet et sans erreur', async () => {
     const { fb } = setup()
-    expect(await fb.push()).toEqual({ sent: 0, remaining: 0, error: null })
+    expect(await fb.push()).toEqual({ sent: 0, remaining: 0, error: null, detail: null })
   })
 })
 

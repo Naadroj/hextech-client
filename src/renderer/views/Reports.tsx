@@ -137,11 +137,21 @@ export function Reports() {
                 : result.error === 'disabled'
                   ? 'Signalements désactivés.'
                   : result.error === 'network'
-                    ? `${result.sent} envoyé(s), ${result.remaining} conservé(s) — réessaie plus tard.`
+                    ? `${result.sent} envoyé(s), ${result.remaining} conservé(s).`
                     : `${result.sent} signalement(s) envoyé(s).`}
             </span>
           )}
         </div>
+
+        {/* Le message brut de la base : c'est lui qui désigne le vrai coupable. */}
+        {result?.detail && (
+          <div className="mt-3 border border-warn/50 bg-warn/10 px-3 py-2">
+            <div className="font-display text-[10px] uppercase tracking-hexwide text-gold-700">
+              Réponse de la base
+            </div>
+            <p className="mt-1 break-words font-mono text-xs text-warn">{result.detail}</p>
+          </div>
+        )}
       </Frame>
 
       {loading ? (

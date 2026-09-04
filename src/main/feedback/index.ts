@@ -173,19 +173,18 @@ export class Feedback extends EventEmitter {
    */
   async push(): Promise<FeedbackPushResult> {
     const pending = this.deps.store.readAll()
-    const idle = (error: FeedbackPushResult['error']): FeedbackPushResult => ({
-      sent: 0,
-      remaining: pending.length,
-      error,
-    })
-    if (pending.length === 0) return { sent: 0, remaining: 0, error: null }
+    const idle = (
+      error: FeedbackPushResult['error'],
+      detail: string | null = null,
+    ): FeedbackPushResult => ({ sent: 0, remaining: pending.length, error, detail })
+    if (pending.length === 0) return { sent: 0, remaining: 0, error: null, detail: null }
     if (this.pushing) return idle('network')
     if (!this.deps.config.get('feedbackEnabled')) return idle('disabled')
     if (!isConfigured()) return idle('not-configured')
 
     this.pushing = true
     try {
-      const sent = await insertReports(pending, this.deps.post)
+      const { sent, error } = await insertReports(pending, this.deps.post)
       if (sent.length > 0) {
         this.deps.store.remove(new Set(sent))
         this.lastSentAt = new Date((this.deps.now ?? Date.now)()).toISOString()
@@ -193,7 +192,12 @@ export class Feedback extends EventEmitter {
       }
       const remaining = this.deps.store.count()
       this.emit('state', this.state)
-      return { sent: sent.length, remaining, error: remaining > 0 ? 'network' : null }
+      return {
+        sent: sent.length,
+        remaining,
+        error: remaining > 0 ? 'network' : null,
+        detail: error,
+      }
     } finally {
       this.pushing = false
     }

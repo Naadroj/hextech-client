@@ -218,7 +218,7 @@ export function stubLcuBridge(
     list: vi.fn(async () => []),
     annotate: vi.fn(async () => true),
     discard: vi.fn(async () => true),
-    push: vi.fn(async () => ({ sent: 0, remaining: 0, error: null })),
+    push: vi.fn(async () => ({ sent: 0, remaining: 0, error: null, detail: null })),
     onState: (cb) => {
       feedbackStateCbs.push(cb)
       return () => {

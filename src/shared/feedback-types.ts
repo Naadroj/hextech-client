@@ -104,6 +104,11 @@ export interface FeedbackPushResult {
   remaining: number
   /** Pourquoi rien n'est parti, le cas échéant. */
   error: 'disabled' | 'not-configured' | 'network' | null
+  /**
+   * Message brut renvoyé par la base (colonne manquante, policy RLS, DNS…).
+   * Affiché tel quel : un envoi qui échoue sans dire pourquoi est indébogable.
+   */
+  detail: string | null
 }
 
 export const IDLE_FEEDBACK_STATE: FeedbackState = {

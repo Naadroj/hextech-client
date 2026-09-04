@@ -71,7 +71,7 @@ export function useFeedbackQueue(reloadKey?: unknown): {
     try {
       setResult(await getFeedback().push())
     } catch {
-      setResult({ sent: 0, remaining: reports.length, error: 'network' })
+      setResult({ sent: 0, remaining: reports.length, error: 'network', detail: null })
     } finally {
       setPushing(false)
       reload()

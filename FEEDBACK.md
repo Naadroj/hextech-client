@@ -41,6 +41,18 @@ Activé par défaut ; interrupteur dans **Réglages → Signalements**.
 
 ## Mise en place Supabase (une fois)
 
+Si la table existe déjà et que l'envoi échoue, la réparation tient en quatre
+lignes idempotentes :
+
+```sql
+alter table feedback add column if not exists comment text;
+alter table feedback enable row level security;
+drop policy if exists "insert only" on feedback;
+create policy "insert only" on feedback for insert to anon with check (true);
+```
+
+Création complète à partir de rien :
+
 ```sql
 create table feedback (
   id             uuid primary key,
