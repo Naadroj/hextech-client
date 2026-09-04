@@ -1,23 +1,29 @@
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
-  main: {
-    plugins: [externalizeDepsPlugin()],
-    // Injectées **au build** (le process principal n'a pas accès à ces
-    // variables sur la machine de l'utilisateur). Absentes → envoi inerte.
-    define: {
-      'process.env.HEXTECH_SUPABASE_URL': JSON.stringify(
-        process.env.HEXTECH_SUPABASE_URL ?? '',
-      ),
-      'process.env.HEXTECH_SUPABASE_ANON_KEY': JSON.stringify(
-        process.env.HEXTECH_SUPABASE_ANON_KEY ?? '',
-      ),
-    },
-    build: {
-      rollupOptions: { input: { index: resolve('src/main/index.ts') } },
-    },
+export default defineConfig(({ mode }) => {
+  // Préfixe vide = charge **toutes** les clés du `.env`, pas seulement celles
+  // préfixées `VITE_`. L'environnement du shell (et donc la CI) reste
+  // prioritaire sur le fichier.
+  const env = loadEnv(mode, process.cwd(), '')
+  const fromEnv = (key: string): string => process.env[key] || env[key] || ''
+
+  return {
+    main: {
+      plugins: [externalizeDepsPlugin()],
+      // Injectées **au build** (le process principal n'a pas accès à ces
+      // variables sur la machine de l'utilisateur). Absentes → envoi inerte.
+      define: {
+        'process.env.HEXTECH_SUPABASE_URL': JSON.stringify(fromEnv('HEXTECH_SUPABASE_URL')),
+        'process.env.HEXTECH_SUPABASE_ANON_KEY': JSON.stringify(
+          fromEnv('HEXTECH_SUPABASE_ANON_KEY'),
+        ),
+      },
+      build: {
+        rollupOptions: { input: { index: resolve('src/main/index.ts') } },
+      },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
@@ -44,4 +50,5 @@ export default defineConfig({
     },
     plugins: [react()],
   },
+  }
 })

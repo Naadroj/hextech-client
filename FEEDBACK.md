@@ -77,9 +77,14 @@ Ces deux valeurs sont **remplacées textuellement au moment du build**, par
 pointée** (`process.env.HEXTECH_SUPABASE_URL`). En `process.env['…']` le
 remplacement n'a pas lieu et la valeur serait vide chez tout le monde.
 
+Le `.env` de la racine est chargé au build (`loadEnv` avec un préfixe vide dans
+`electron.vite.config.ts`) ; l'environnement du shell — donc la CI — reste
+prioritaire sur le fichier.
+
 ```bash
-# Build local — .env à la racine (gitignoré), ou variables du shell
-HEXTECH_SUPABASE_URL=https://xxxx.supabase.co HEXTECH_SUPABASE_ANON_KEY=eyJhbGci... npm run dist
+# .env à la racine (gitignoré)
+HEXTECH_SUPABASE_URL=https://xxxx.supabase.co
+HEXTECH_SUPABASE_ANON_KEY=eyJhbGci...
 ```
 
 En CI, deux **secrets de dépôt** du même nom : le workflow `release` les passe
@@ -93,8 +98,14 @@ grep -o "supabase.co" out/main/index.js
 
 ## Traiter les signalements
 
+Ajoute au `.env` la clé **`service_role`** (Project Settings → API). Elle donne
+un accès total : elle ne quitte jamais ta machine et n'est **jamais** embarquée
+dans l'app. L'URL est reprise de `HEXTECH_SUPABASE_URL`.
+
 ```bash
-# .env : SUPABASE_URL + SUPABASE_SERVICE_KEY (clé de service, jamais embarquée)
+# .env
+SUPABASE_SERVICE_KEY=eyJhbGci...   # service_role
+
 npm run feedback:review
 ```
 
