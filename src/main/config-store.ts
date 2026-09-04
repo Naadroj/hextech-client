@@ -21,6 +21,10 @@ export interface AppConfig {
   overlayCompact: boolean
   /** Dernière position/taille de l'overlay (`null` = position par défaut). */
   overlayBounds: OverlayBounds | null
+  /** Envoi des signalements « item incohérent ». */
+  feedbackEnabled: boolean
+  /** UUID anonyme d'installation (généré au 1er signalement). Aucune identité Riot. */
+  installId: string
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -30,6 +34,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   overlayEnabled: true,
   overlayCompact: true,
   overlayBounds: null,
+  feedbackEnabled: true,
+  installId: '',
 }
 
 const BOOLEAN_KEYS = (Object.keys(DEFAULT_CONFIG) as (keyof AppConfig)[]).filter(
@@ -52,6 +58,7 @@ function coerce(parsed: unknown): AppConfig {
       if (typeof record[key] === 'boolean') (out[key] as boolean) = record[key] as boolean
     }
     out.overlayBounds = coerceBounds(record['overlayBounds'])
+    if (typeof record['installId'] === 'string') out.installId = record['installId']
   }
   return out
 }

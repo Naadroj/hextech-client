@@ -4,6 +4,7 @@ import type {
   CoachBridge,
   LcuBridge,
   LiveBridge,
+  FeedbackBridge,
   OverlayBridge,
   StaticDataBridge,
   UpdaterBridge,
@@ -17,6 +18,8 @@ import type { UpdateState, UpdaterInfo } from '@shared/update-types'
 import { IDLE_UPDATE_STATE } from '@shared/update-types'
 import type { OverlayState } from '@shared/overlay-types'
 import { IDLE_OVERLAY_STATE } from '@shared/overlay-types'
+import type { FeedbackState } from '@shared/feedback-types'
+import { IDLE_FEEDBACK_STATE } from '@shared/feedback-types'
 
 type WindowWithApp = { app?: AppApi }
 
@@ -48,6 +51,7 @@ export function stubLcuBridge(
   coachOverrides: Partial<CoachBridge> = {},
   updaterOverrides: Partial<UpdaterBridge> = {},
   overlayOverrides: Partial<OverlayBridge> = {},
+  feedbackOverrides: Partial<FeedbackBridge> = {},
 ) {
   const connectionCbs: ((info: ConnectionInfo) => void)[] = []
   const eventCbs: ((event: LcuEvent) => void)[] = []
@@ -57,6 +61,7 @@ export function stubLcuBridge(
   const coachAdviceCbs: ((advice: CoachAdvice) => void)[] = []
   const updaterStateCbs: ((state: UpdateState) => void)[] = []
   const overlayStateCbs: ((state: OverlayState) => void)[] = []
+  const feedbackStateCbs: ((state: FeedbackState) => void)[] = []
   const unsubscribe = vi.fn()
 
   // Fan-out : plusieurs abonnés possibles (comme le vrai preload).
@@ -70,6 +75,7 @@ export function stubLcuBridge(
     coachAdvice: (advice: CoachAdvice) => coachAdviceCbs.forEach((cb) => cb(advice)),
     updaterState: (state: UpdateState) => updaterStateCbs.forEach((cb) => cb(state)),
     overlayState: (state: OverlayState) => overlayStateCbs.forEach((cb) => cb(state)),
+    feedbackState: (state: FeedbackState) => feedbackStateCbs.forEach((cb) => cb(state)),
   }
   const remove = <T>(arr: T[], item: T) => {
     const i = arr.indexOf(item)
@@ -196,6 +202,20 @@ export function stubLcuBridge(
     ...overlayOverrides,
   }
 
+  const feedback: FeedbackBridge = {
+    getState: vi.fn(async () => ({ ...IDLE_FEEDBACK_STATE })),
+    send: vi.fn(async () => true),
+    setEnabled: vi.fn(async (enabled: boolean) => ({ ...IDLE_FEEDBACK_STATE, enabled })),
+    onState: (cb) => {
+      feedbackStateCbs.push(cb)
+      return () => {
+        unsubscribe()
+        remove(feedbackStateCbs, cb)
+      }
+    },
+    ...feedbackOverrides,
+  }
+
   ;(window as unknown as WindowWithApp).app = {
     windowControls: {
       minimize: vi.fn(async () => {}),
@@ -209,9 +229,10 @@ export function stubLcuBridge(
     coach,
     updater,
     overlay,
+    feedback,
   }
 
-  return { bridge, live, staticData, coach, updater, overlay, emitters, unsubscribe }
+  return { bridge, live, staticData, coach, updater, overlay, feedback, emitters, unsubscribe }
 }
 
 export function clearLcuBridge(): void {

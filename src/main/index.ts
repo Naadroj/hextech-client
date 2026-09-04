@@ -18,6 +18,8 @@ import { Updater } from './updater'
 import { registerUpdateIpc } from './ipc/update-ipc'
 import { createOverlay, type Overlay } from './overlay'
 import { registerOverlayIpc } from './ipc/overlay-ipc'
+import { createFeedback, FeedbackStore, type Feedback } from './feedback'
+import { registerFeedbackIpc } from './ipc/feedback-ipc'
 
 const isDev = !!process.env['ELECTRON_RENDERER_URL']
 const RESOURCES = app.isPackaged ? process.resourcesPath : join(__dirname, '../../resources')
@@ -30,6 +32,7 @@ const OVERLAY_HOTKEY = 'CommandOrControl+Shift+O'
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
 let overlay: Overlay | null = null
+let feedback: Feedback | null = null
 let quitting = false
 
 const config = new ConfigStore(join(app.getPath('userData'), 'config.json'))
@@ -220,6 +223,29 @@ if (!singleInstance) {
           getSender: () => win?.webContents ?? null,
         })
         coach.on('advice', (advice) => overlay?.send(IpcChannels.coachAdvice, advice))
+
+        // Signalements « item incohérent » : file locale puis envoi Supabase.
+        feedback = createFeedback({
+          config,
+          store: new FeedbackStore(join(app.getPath('userData'), 'feedback', 'pending.jsonl')),
+          appVersion: app.getVersion(),
+          getLive: () => live.snapshot?.data ?? null,
+          getAdvice: () => coach.advice,
+          getPatch: () => patchOf(staticData.summary().version),
+        })
+        registerFeedbackIpc({
+          ipcMain,
+          feedback,
+          getSenders: () => {
+            const out = []
+            if (win?.webContents) out.push(win.webContents)
+            const ov = overlay?.webContents
+            if (ov) out.push(ov)
+            return out
+          },
+        })
+        feedback.on('state', (st) => overlay?.send(IpcChannels.feedbackState, st))
+        feedback.start()
         // La détection de premier plan ne tourne que pendant une partie.
         overlay.setGameActive(live.currentStatus === 'active')
         overlay.restore()
@@ -261,6 +287,8 @@ app.on('before-quit', () => {
   globalShortcut.unregister(OVERLAY_HOTKEY)
   overlay?.dispose()
   overlay = null
+  feedback?.dispose()
+  feedback = null
 })
 
 app.on('window-all-closed', () => {

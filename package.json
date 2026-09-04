@@ -26,7 +26,8 @@
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "feedback:review": "vite-node scripts/feedback-review.ts"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

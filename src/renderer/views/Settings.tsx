@@ -1,15 +1,19 @@
 import { Button, Frame, Tag } from '../components/hextech'
 import { useUpdater } from '../lib/useUpdater'
 import { useOverlay } from '../lib/useOverlay'
+import { useFeedback } from '../lib/useFeedback'
 
 export function Settings() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl">Réglages</h1>
-        <p className="mt-1 text-sm text-parchment">Overlay in-game et mises à jour.</p>
+        <p className="mt-1 text-sm text-parchment">
+          Overlay in-game, signalements et mises à jour.
+        </p>
       </div>
       <OverlayPanel />
+      <FeedbackPanel />
       <UpdatePanel />
     </div>
   )
@@ -33,6 +37,37 @@ function OverlayPanel() {
       <div className="hx-divider" />
       <Button onClick={() => void setEnabled(!state.enabled)}>
         {state.enabled ? "Désactiver l'overlay" : "Activer l'overlay"}
+      </Button>
+    </Frame>
+  )
+}
+
+function FeedbackPanel() {
+  const { state, setEnabled } = useFeedback()
+  return (
+    <Frame
+      title="Signalements"
+      headerRight={
+        <Tag tone={state.enabled ? 'cyan' : undefined}>{state.enabled ? 'Actif' : 'Inactif'}</Tag>
+      }
+    >
+      <p className="text-sm text-parchment">
+        Le bouton <span className="text-gold-100">☟</span> de l'overlay permet de signaler qu'un
+        item conseillé n'est pas cohérent. Ça sert à corriger le moteur.
+      </p>
+      <p className="mt-2 text-xs text-warn">
+        Le signalement envoie l'état de la partie (champions, items, niveaux, or) à une base
+        distante, avec un identifiant d'installation anonyme. Aucun pseudo, aucun identifiant
+        Riot. C'est la seule donnée qui sort de l'app.
+      </p>
+      {state.pending > 0 && (
+        <p className="mt-2 text-xs text-parchment">
+          {state.pending} signalement(s) en attente d'envoi.
+        </p>
+      )}
+      <div className="hx-divider" />
+      <Button onClick={() => void setEnabled(!state.enabled)}>
+        {state.enabled ? 'Désactiver les signalements' : 'Activer les signalements'}
       </Button>
     </Frame>
   )

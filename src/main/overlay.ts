@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 import { join } from 'node:path'
-import { BrowserWindow, screen, shell } from 'electron'
+import { BrowserWindow, screen, shell, type WebContents } from 'electron'
 import { logger } from './logger'
 import type { ConfigStore } from './config-store'
 import {
@@ -242,6 +242,11 @@ export class Overlay extends EventEmitter {
     this.dragStopTimer = null
     this.dragging = false
     if (wasDragging) this.persistBounds()
+  }
+
+  /** `webContents` de la fenêtre overlay (relais d'état), `null` si fermée. */
+  get webContents(): WebContents | null {
+    return this.win && !this.win.isDestroyed() ? this.win.webContents : null
   }
 
   send(channel: string, payload: unknown): void {

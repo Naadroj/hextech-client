@@ -29,6 +29,14 @@ describe('OverlayView — mode réduit (défaut)', () => {
     expect(screen.queryByLabelText('Fermer l’overlay')).not.toBeInTheDocument()
   })
 
+  it('le bouton de signalement envoie le rapport et accuse réception', async () => {
+    const { feedback } = stubLcuBridge()
+    render(<OverlayView advice={makeCoachAdvice()} />)
+    fireEvent.click(screen.getByLabelText('Signaler un item incohérent'))
+    expect(feedback.send).toHaveBeenCalledWith({ itemId: 3139, itemRank: 0, reasonCode: null })
+    await waitFor(() => expect(screen.getByText('✓')).toBeInTheDocument())
+  })
+
   it('reste déplaçable', () => {
     const { overlay } = stubLcuBridge()
     render(<OverlayView advice={makeCoachAdvice()} />)
@@ -56,6 +64,18 @@ describe('OverlayView — dépliage', () => {
     expect(screen.getByText(/3200 or/)).toBeInTheDocument()
     expect(screen.getByText(/résistance magique/i)).toBeInTheDocument()
     expect(screen.getByTitle(/Salutations de Dominik/)).toBeInTheDocument()
+  })
+
+  it('déplié, les puces de catégorie envoient un code de raison', () => {
+    const { feedback } = stubLcuBridge()
+    render(<OverlayView advice={makeCoachAdvice()} />)
+    fireEvent.click(screen.getByLabelText('Déplier'))
+    fireEvent.click(screen.getByText('Mauvais axe AD/AP'))
+    expect(feedback.send).toHaveBeenCalledWith({
+      itemId: 3139,
+      itemRank: 0,
+      reasonCode: 'wrong-axis',
+    })
   })
 
   it('déplié, toujours ni or ni chrono', () => {

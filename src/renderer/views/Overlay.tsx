@@ -4,6 +4,8 @@ import { ItemIcon } from '../components/ItemIcon'
 import { useCoach } from '../lib/useCoach'
 import { useStaticData } from '../lib/useStaticData'
 import { getOverlay, setOverlayInteractive } from '../lib/overlayBridge'
+import { getFeedback } from '../lib/feedbackBridge'
+import { FEEDBACK_REASONS, type FeedbackReason } from '@shared/feedback-types'
 
 /**
  * Vue de l'overlay in-game : carte compacte, semi-transparente, déplaçable.
@@ -122,10 +124,37 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
   const rec = advice.recommendation
   const primary = rec?.primary ?? null
 
+  // Signalement « item incohérent » : accusé de réception 2 s, sans voler le focus.
+  const [flagged, setFlagged] = useState(false)
+  const flag = (reasonCode: FeedbackReason | null): void => {
+    try {
+      void getFeedback()
+        .send({ itemId: primary?.itemId ?? null, itemRank: 0, reasonCode })
+        .then((ok) => {
+          if (!ok) return
+          setFlagged(true)
+          window.setTimeout(() => setFlagged(false), 2000)
+        })
+        .catch(() => {})
+    } catch {
+      /* hors Electron */
+    }
+  }
+
   // Pas de bouton « fermer » : on retire l'overlay depuis l'app (Réglages ou
   // Ctrl+Maj+O), pour ne pas le désactiver d'un clic malencontreux en pleine partie.
   const buttons = (
     <span className="ml-auto flex items-center" onMouseDown={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        aria-label="Signaler un item incohérent"
+        title="Signaler : cet item n’est pas cohérent"
+        onClick={() => flag(null)}
+        disabled={!primary}
+        className={`px-1 text-xs ${flagged ? 'text-ok' : 'text-gold-700 hover:text-warn'} disabled:opacity-30`}
+      >
+        {flagged ? '✓' : '☟'}
+      </button>
       <button
         type="button"
         aria-label={compact ? 'Déplier' : 'Replier'}
@@ -203,6 +232,20 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
                   {primary.reasons[0] && (
                     <p className="text-[11px] leading-snug text-gold-100/80">• {primary.reasons[0]}</p>
                   )}
+
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="text-[10px] text-gold-700">Signaler :</span>
+                    {FEEDBACK_REASONS.map((r) => (
+                      <button
+                        key={r.code}
+                        type="button"
+                        onClick={() => flag(r.code)}
+                        className="border border-gold-800/70 px-1.5 py-0.5 text-[10px] text-parchment hover:border-warn hover:text-warn"
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
 
                   {rec && rec.buildPath.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1 border-t border-gold-800/40 pt-2">

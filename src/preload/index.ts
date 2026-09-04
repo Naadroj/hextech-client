@@ -6,6 +6,7 @@ import type { StaticDataSummary } from '../shared/staticdata-types'
 import type { CoachAdvice } from '../shared/coach-types'
 import type { UpdateState } from '../shared/update-types'
 import type { OverlayState } from '../shared/overlay-types'
+import type { FeedbackDraft, FeedbackState } from '../shared/feedback-types'
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
   const listener = (_event: IpcRendererEvent, payload: T): void => cb(payload)
@@ -87,6 +88,14 @@ const api: AppApi = {
     dragEnd: () => ipcRenderer.invoke(IpcChannels.overlayDragEnd),
     onState: (cb: (state: OverlayState) => void) =>
       subscribe<OverlayState>(IpcChannels.overlayState, cb),
+  },
+  feedback: {
+    getState: () => ipcRenderer.invoke(IpcChannels.feedbackGetState),
+    send: (draft: FeedbackDraft) => ipcRenderer.invoke(IpcChannels.feedbackSend, draft),
+    setEnabled: (enabled: boolean) =>
+      ipcRenderer.invoke(IpcChannels.feedbackSetEnabled, enabled),
+    onState: (cb: (state: FeedbackState) => void) =>
+      subscribe<FeedbackState>(IpcChannels.feedbackState, cb),
   },
 }
 

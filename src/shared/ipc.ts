@@ -11,6 +11,7 @@ import type { StaticDataSummary } from './staticdata-types'
 import type { CoachAdvice } from './coach-types'
 import type { UpdateState, UpdaterInfo } from './update-types'
 import type { OverlayState } from './overlay-types'
+import type { FeedbackDraft, FeedbackState } from './feedback-types'
 
 export interface WindowControls {
   minimize: () => Promise<void>
@@ -132,6 +133,19 @@ export interface OverlayBridge {
   onState: (cb: (state: OverlayState) => void) => () => void
 }
 
+/**
+ * Pont de signalement : « l'item proposé n'est pas cohérent ». Le rapport est
+ * composé côté main (il a besoin de l'état de partie complet) ; le renderer
+ * n'envoie que l'item visé et une catégorie optionnelle.
+ */
+export interface FeedbackBridge {
+  getState: () => Promise<FeedbackState>
+  /** `false` si hors partie ou doublon récent. */
+  send: (draft: FeedbackDraft) => Promise<boolean>
+  setEnabled: (enabled: boolean) => Promise<FeedbackState>
+  onState: (cb: (state: FeedbackState) => void) => () => void
+}
+
 export interface AppApi {
   windowControls: WindowControls
   lcu: LcuBridge
@@ -140,6 +154,7 @@ export interface AppApi {
   coach: CoachBridge
   updater: UpdaterBridge
   overlay: OverlayBridge
+  feedback: FeedbackBridge
 }
 
 /** Noms de canaux IPC (source unique de vérité main <-> preload). */
@@ -197,6 +212,11 @@ export const IpcChannels = {
   overlayDragStart: 'overlay:drag-start',
   overlayDragEnd: 'overlay:drag-end',
   overlayState: 'overlay:state',
+
+  feedbackGetState: 'feedback:get-state',
+  feedbackSend: 'feedback:send',
+  feedbackSetEnabled: 'feedback:set-enabled',
+  feedbackState: 'feedback:state',
 } as const
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels]

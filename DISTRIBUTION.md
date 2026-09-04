@@ -34,16 +34,22 @@ Config : `electron-builder.yml`. L'installateur est **NSIS**, par utilisateur
   fichier du jeu. L'app lit seulement les API **locales** du client :
   - **LCU** (REST + WebSocket, port du lockfile) — profil, lobby, champ select ;
   - **Live Client Data API** (`https://127.0.0.1:2999`) — état de la partie en cours.
-- **Aucune télémétrie**, aucun compte, aucun backend applicatif. Requêtes
-  sortantes, toutes en GET anonyme : CDN publics **Data Dragon** / **Meraki
-  Analytics** (catalogue), et **GitHub Releases** (le `builds.json` pré-agrégé).
-  Aucune donnée du joueur n'est envoyée. Coupe le réseau → l'app reste
-  fonctionnelle avec le snapshot et le `builds.json` embarqués.
+- **Aucun compte, aucune télémétrie passive.** Requêtes sortantes en GET
+  anonyme : CDN publics **Data Dragon** / **Meraki Analytics** (catalogue) et
+  **GitHub Releases** (le `builds.json` pré-agrégé). Coupe le réseau → l'app
+  reste fonctionnelle avec le snapshot et le `builds.json` embarqués.
+- **Une seule donnée sort de l'app, et seulement sur action explicite** : le
+  bouton **☟** de l'overlay envoie un *signalement* « cet item n'est pas
+  cohérent », avec l'état de la partie (champions, items, niveaux, or) et un
+  **UUID d'installation anonyme** — aucun pseudo, aucun identifiant Riot.
+  Activé par défaut, désactivable dans **Réglages → Signalements**. Détail complet
+  et schéma de la table : `FEEDBACK.md`.
 - L'**overlay in-game** est une simple fenêtre Electron transparente toujours
   au-dessus — **aucune injection, aucun hook**, elle lit les mêmes données
   locales que le reste de l'app. Elle laisse passer les clics vers le jeu sauf
   au survol de la carte. Nécessite League en mode **Sans bordure** (le plein
-  écran exclusif passe devant toute fenêtre). Désactivé par défaut.
+  écran exclusif passe devant toute fenêtre). Activé par défaut, en mode réduit
+  (icône du prochain item seule) ; la flèche déplie le détail.
 - Toutes les actions LCU (accepter un ready-check, pick/ban, etc.) restent
   derrière un **clic explicite** — jamais d'automatisation par timer.
 - Le Coach ne fait **que conseiller** : il n'achète rien, ne touche pas à
