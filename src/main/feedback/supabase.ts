@@ -12,8 +12,12 @@ import type { FeedbackReport } from '../../shared/feedback-types'
  * Surchargeable au build : `HEXTECH_SUPABASE_URL` / `HEXTECH_SUPABASE_ANON_KEY`.
  */
 
-export const SUPABASE_URL = process.env['HEXTECH_SUPABASE_URL'] ?? ''
-export const SUPABASE_ANON_KEY = process.env['HEXTECH_SUPABASE_ANON_KEY'] ?? ''
+// ⚠️ Notation **pointée** obligatoire : ces deux expressions sont remplacées
+// textuellement au build par `define` (electron.vite.config.ts). En notation
+// `process.env['…']`, le remplacement n'aurait pas lieu et la valeur serait lue
+// à l'exécution sur la machine de l'utilisateur — donc toujours vide.
+export const SUPABASE_URL = process.env.HEXTECH_SUPABASE_URL ?? ''
+export const SUPABASE_ANON_KEY = process.env.HEXTECH_SUPABASE_ANON_KEY ?? ''
 const TABLE = 'feedback'
 
 export const isConfigured = (): boolean => !!SUPABASE_URL && !!SUPABASE_ANON_KEY

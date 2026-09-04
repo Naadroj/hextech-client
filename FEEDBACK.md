@@ -59,12 +59,37 @@ binaire peut insérer des lignes. À l'échelle d'un cercle d'amis c'est
 acceptable ; si ça devient un problème, mettre un Cloudflare Worker devant pour
 faire le rate-limit.
 
+### Où trouver les deux valeurs
+
+Dans le tableau de bord Supabase : **Project Settings → API**.
+- `HEXTECH_SUPABASE_URL` = *Project URL* (`https://xxxxxxxx.supabase.co`)
+- `HEXTECH_SUPABASE_ANON_KEY` = la clé **`anon` / `public`** (surtout **pas**
+  la clé `service_role`, qui donne un accès total et ne doit jamais être
+  embarquée dans le client).
+
 ### Injection dans le build
 
-Le client lit `HEXTECH_SUPABASE_URL` et `HEXTECH_SUPABASE_ANON_KEY` au build.
-En local, un `.env` (gitignoré) suffit. En CI, deux secrets de dépôt à exposer
-dans le workflow `release`. **Sans ces variables, l'envoi est inerte** : les
-signalements s'empilent en local sans jamais partir.
+Ces deux valeurs sont **remplacées textuellement au moment du build**, par
+`define` dans `electron.vite.config.ts` — le process principal n'a aucun accès
+à l'environnement de la machine de l'utilisateur final.
+
+⚠️ Corollaire : dans `supabase.ts`, la lecture doit rester en **notation
+pointée** (`process.env.HEXTECH_SUPABASE_URL`). En `process.env['…']` le
+remplacement n'a pas lieu et la valeur serait vide chez tout le monde.
+
+```bash
+# Build local — .env à la racine (gitignoré), ou variables du shell
+HEXTECH_SUPABASE_URL=https://xxxx.supabase.co HEXTECH_SUPABASE_ANON_KEY=eyJhbGci... npm run dist
+```
+
+En CI, deux **secrets de dépôt** du même nom : le workflow `release` les passe
+déjà au build. **Sans ces variables, l'app se construit quand même** — l'envoi
+est simplement inerte et les signalements s'empilent en local.
+
+Pour vérifier qu'un build les a bien reçues :
+```bash
+grep -o "supabase.co" out/main/index.js
+```
 
 ## Traiter les signalements
 

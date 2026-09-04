@@ -36,4 +36,8 @@ jobs:
       - name: Build + publier l'installeur
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Signalements : injectés dans le bundle main au build. Secrets absents
+          # → l'app se construit quand même, l'envoi est simplement inerte.
+          HEXTECH_SUPABASE_URL: ${{ secrets.HEXTECH_SUPABASE_URL }}
+          HEXTECH_SUPABASE_ANON_KEY: ${{ secrets.HEXTECH_SUPABASE_ANON_KEY }}
         run: npm run build && npx --no-install electron-builder --win --publish always

@@ -5,6 +5,16 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    // Injectées **au build** (le process principal n'a pas accès à ces
+    // variables sur la machine de l'utilisateur). Absentes → envoi inerte.
+    define: {
+      'process.env.HEXTECH_SUPABASE_URL': JSON.stringify(
+        process.env.HEXTECH_SUPABASE_URL ?? '',
+      ),
+      'process.env.HEXTECH_SUPABASE_ANON_KEY': JSON.stringify(
+        process.env.HEXTECH_SUPABASE_ANON_KEY ?? '',
+      ),
+    },
     build: {
       rollupOptions: { input: { index: resolve('src/main/index.ts') } },
     },
