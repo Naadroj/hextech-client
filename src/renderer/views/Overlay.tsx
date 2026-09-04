@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CoachAdvice } from '@shared/coach-types'
-import { AxisBadge, AxisSwitch } from '../components/AxisSwitch'
+import { AxisCycleButton, AxisSwitch } from '../components/AxisSwitch'
+import { BugIcon } from '../components/BugIcon'
 import { ItemIcon } from '../components/ItemIcon'
 import { useAxisSwitch } from '../lib/useAxisSwitch'
 import { useCoach } from '../lib/useCoach'
@@ -127,20 +128,33 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
   const rec = advice.recommendation
   const primary = rec?.primary ?? null
 
-  // Signalement « item incohérent » : accusé de réception 2 s, sans voler le focus.
+  /**
+   * Signalement : **jamais en un clic**. Le bouton bug ouvre le choix du motif ;
+   * sans motif le rapport ne serait pas exploitable. En mode réduit il n'y a pas
+   * la place, donc on déplie d'abord.
+   */
+  const [reporting, setReporting] = useState(false)
   const [flagged, setFlagged] = useState(false)
-  const flag = (reasonCode: FeedbackReason | null): void => {
+
+  const openReport = (): void => {
+    setFlagged(false)
+    setReporting(true)
+    if (compact) toggleCompact()
+  }
+
+  const flag = (reasonCode: FeedbackReason): void => {
     try {
       void getFeedback()
-        .send({ itemId: primary?.itemId ?? null, itemRank: 0, reasonCode })
+        .report({ itemId: primary?.itemId ?? null, itemRank: 0, reasonCode })
         .then((ok) => {
+          setReporting(false)
           if (!ok) return
           setFlagged(true)
-          window.setTimeout(() => setFlagged(false), 2000)
+          window.setTimeout(() => setFlagged(false), 3000)
         })
-        .catch(() => {})
+        .catch(() => setReporting(false))
     } catch {
-      /* hors Electron */
+      setReporting(false) // hors Electron
     }
   }
 
@@ -152,11 +166,13 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
         type="button"
         aria-label="Signaler un item incohérent"
         title="Signaler : cet item n’est pas cohérent"
-        onClick={() => flag(null)}
+        onClick={openReport}
         disabled={!primary}
-        className={`px-1 text-xs ${flagged ? 'text-ok' : 'text-gold-700 hover:text-warn'} disabled:opacity-30`}
+        className={`px-1 ${
+          flagged ? 'text-ok' : reporting ? 'text-warn' : 'text-gold-700 hover:text-warn'
+        } disabled:opacity-30`}
       >
-        {flagged ? '✓' : '☟'}
+        {flagged ? <span className="text-xs">✓</span> : <BugIcon />}
       </button>
       <button
         type="button"
@@ -196,7 +212,9 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
                 <span className="h-2 w-2 rotate-45 bg-gold-800" />
               </span>
             )}
-            <AxisBadge axis={axisSwitch.axis} />
+            <span onMouseDown={(e) => e.stopPropagation()}>
+              <AxisCycleButton value={axisSwitch.axis} onChange={axisSwitch.setAxis} />
+            </span>
             {buttons}
           </div>
         ) : (
@@ -233,29 +251,47 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
                       </div>
                     </div>
                   </div>
-                  {axisSwitch.available && (
-                    <div onMouseDown={(e) => e.stopPropagation()}>
-                      <AxisSwitch value={axisSwitch.axis} onChange={axisSwitch.setAxis} dense />
-                    </div>
-                  )}
+                  <div onMouseDown={(e) => e.stopPropagation()}>
+                    <AxisSwitch value={axisSwitch.axis} onChange={axisSwitch.setAxis} dense />
+                  </div>
 
                   {primary.reasons[0] && (
                     <p className="text-[11px] leading-snug text-gold-100/80">• {primary.reasons[0]}</p>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-1">
-                    <span className="text-[10px] text-gold-700">Signaler :</span>
-                    {FEEDBACK_REASONS.map((r) => (
-                      <button
-                        key={r.code}
-                        type="button"
-                        onClick={() => flag(r.code)}
-                        className="border border-gold-800/70 px-1.5 py-0.5 text-[10px] text-parchment hover:border-warn hover:text-warn"
-                      >
-                        {r.label}
-                      </button>
-                    ))}
-                  </div>
+                  {reporting && (
+                    <div
+                      className="space-y-1 border border-warn/50 bg-warn/5 p-1.5"
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <div className="text-[10px] text-gold-700">Qu’est-ce qui cloche ?</div>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {FEEDBACK_REASONS.map((r) => (
+                          <button
+                            key={r.code}
+                            type="button"
+                            onClick={() => flag(r.code)}
+                            className="border border-gold-800/70 px-1.5 py-0.5 text-[10px] text-parchment hover:border-warn hover:text-warn"
+                          >
+                            {r.label}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => setReporting(false)}
+                          className="px-1 text-[10px] text-gold-700 hover:text-gold-100"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {flagged && (
+                    <p className="text-[10px] text-ok">
+                      Enregistré. À compléter et envoyer depuis l’onglet Signalements.
+                    </p>
+                  )}
 
                   {rec && rec.buildPath.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1 border-t border-gold-800/40 pt-2">

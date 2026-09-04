@@ -52,13 +52,14 @@ function FeedbackPanel() {
       }
     >
       <p className="text-sm text-parchment">
-        Le bouton <span className="text-gold-100">☟</span> de l'overlay permet de signaler qu'un
-        item conseillé n'est pas cohérent. Ça sert à corriger le moteur.
+        L'icône bug de l'overlay permet de signaler qu'un item conseillé n'est pas cohérent. Ça
+        sert à corriger le moteur. Les rapports s'accumulent en local ; on les complète et on les
+        envoie depuis l'onglet <span className="text-gold-100">Signalements</span>.
       </p>
       <p className="mt-2 text-xs text-warn">
-        Le signalement envoie l'état de la partie (champions, items, niveaux, or) à une base
-        distante, avec un identifiant d'installation anonyme. Aucun pseudo, aucun identifiant
-        Riot. C'est la seule donnée qui sort de l'app.
+        À l'envoi, le rapport transmet l'état de la partie (champions, items, niveaux, or), le fil
+        des propositions et un identifiant d'installation anonyme — aucun pseudo, aucun
+        identifiant Riot. Rien ne part sans un clic sur « Envoyer ».
       </p>
       {state.pending > 0 && (
         <p className="mt-2 text-xs text-parchment">

@@ -39,12 +39,13 @@ Config : `electron-builder.yml`. L'installateur est **NSIS**, par utilisateur
   **GitHub Releases** (le `builds.json` pré-agrégé). Coupe le réseau → l'app
   reste fonctionnelle avec le snapshot et le `builds.json` embarqués.
 - **Une seule donnée sort de l'app, et seulement sur action explicite** : le
-  bouton **☟** de l'overlay envoie un *signalement* « cet item n'est pas
-  cohérent », avec l'état de la partie (champions, items, niveaux, or), le fil
-  des propositions de cette partie-là et un **UUID d'installation anonyme** —
-  aucun pseudo, aucun identifiant Riot. Activé par défaut, désactivable dans
-  **Réglages → Signalements**. Détail complet et schéma de la table :
-  `FEEDBACK.md`.
+  bouton **bug** de l'overlay enregistre un *signalement* « cet item n'est pas
+  cohérent » **en local**, et l'onglet **Signalements** de l'app l'envoie sur
+  clic explicite — il n'y a aucun vidage automatique. Le rapport porte l'état de
+  la partie (champions, items, niveaux, or), le fil des propositions de cette
+  partie-là et un **UUID d'installation anonyme** ; aucun pseudo, aucun
+  identifiant Riot. Désactivable dans **Réglages → Signalements**. Détail
+  complet et schéma de la table : `FEEDBACK.md`.
 - L'**historique des propositions** (20 dernières parties, dans
   `%APPDATA%/hextech-client/history/`) est **purement local** : il se lit dans
   l'onglet Coach et ne part sur le réseau que s'il est joint à un signalement,

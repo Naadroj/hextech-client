@@ -97,7 +97,12 @@ const api: AppApi = {
   },
   feedback: {
     getState: () => ipcRenderer.invoke(IpcChannels.feedbackGetState),
-    send: (draft: FeedbackDraft) => ipcRenderer.invoke(IpcChannels.feedbackSend, draft),
+    report: (draft: FeedbackDraft) => ipcRenderer.invoke(IpcChannels.feedbackReport, draft),
+    list: () => ipcRenderer.invoke(IpcChannels.feedbackList),
+    annotate: (id: string, comment: string) =>
+      ipcRenderer.invoke(IpcChannels.feedbackAnnotate, id, comment),
+    discard: (id: string) => ipcRenderer.invoke(IpcChannels.feedbackDiscard, id),
+    push: () => ipcRenderer.invoke(IpcChannels.feedbackPush),
     setEnabled: (enabled: boolean) =>
       ipcRenderer.invoke(IpcChannels.feedbackSetEnabled, enabled),
     onState: (cb: (state: FeedbackState) => void) =>

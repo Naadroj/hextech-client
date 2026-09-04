@@ -257,7 +257,6 @@ if (!singleInstance) {
           },
         })
         feedback.on('state', (st) => overlay?.send(IpcChannels.feedbackState, st))
-        feedback.start()
         // La détection de premier plan ne tourne que pendant une partie.
         overlay.setGameActive(live.currentStatus === 'active')
         overlay.restore()

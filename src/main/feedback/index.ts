@@ -9,25 +9,27 @@ import type { CoachAdvice } from '../../shared/coach-types'
 import type { HistoryStep } from '../../shared/history-types'
 import type {
   FeedbackDraft,
+  FeedbackPushResult,
   FeedbackReport,
   FeedbackState,
 } from '../../shared/feedback-types'
+import { FEEDBACK_COMMENT_MAX } from '../../shared/feedback-types'
 
 export * from './store'
 export * from './supabase'
 
 /**
  * Orchestrateur des signalements : compose le rapport depuis l'état de partie
- * courant, l'écrit dans la file locale, puis tente l'envoi.
+ * courant et l'écrit dans la file locale. **Rien ne part tout seul** — l'envoi
+ * en base est déclenché explicitement depuis l'onglet Signalements, ce qui
+ * laisse le temps d'ajouter des précisions à froid, après la partie.
  *
- * Le clic en jeu est **synchrone et local** ; le réseau vient après et n'a pas
- * le droit d'échouer bruyamment. Événement : `state` (`FeedbackState`).
+ * Le clic en jeu est donc purement local et ne peut pas échouer.
+ * Événement : `state` (`FeedbackState`).
  */
 
 /** Anti-spam : un même (champion, item) n'est pas resignalé avant ce délai. */
 const DEDUPE_MS = 30_000
-/** Cadence de vidage de la file. */
-const FLUSH_TICK_MS = 5 * 60_000
 
 export interface FeedbackDeps {
   config: ConfigStore
@@ -46,8 +48,7 @@ export interface FeedbackDeps {
 }
 
 export class Feedback extends EventEmitter {
-  private flushTimer: NodeJS.Timeout | null = null
-  private flushing = false
+  private pushing = false
   private lastSentAt: string | null = null
   /** `champion|itemId` → horodatage du dernier signalement. */
   private readonly recent = new Map<string, number>()
@@ -61,19 +62,34 @@ export class Feedback extends EventEmitter {
       enabled: this.deps.config.get('feedbackEnabled'),
       pending: this.deps.store.count(),
       lastSentAt: this.lastSentAt,
+      configured: isConfigured(),
     }
   }
 
-  start(): void {
-    if (this.flushTimer) return
-    void this.flush()
-    this.flushTimer = setInterval(() => void this.flush(), FLUSH_TICK_MS)
+  dispose(): void {
+    this.removeAllListeners()
   }
 
-  dispose(): void {
-    if (this.flushTimer) clearInterval(this.flushTimer)
-    this.flushTimer = null
-    this.removeAllListeners()
+  /** Rapports en attente, du plus récent au plus ancien. */
+  list(): FeedbackReport[] {
+    return this.deps.store.readAll().reverse()
+  }
+
+  /** Ajoute ou remplace les précisions d'un rapport en attente. */
+  annotate(id: string, comment: string): boolean {
+    const trimmed = comment.trim().slice(0, FEEDBACK_COMMENT_MAX)
+    const ok = this.deps.store.patch(id, { comment: trimmed || null })
+    if (ok) this.emit('state', this.state)
+    return ok
+  }
+
+  /** Jette un rapport sans l'envoyer. */
+  discard(id: string): boolean {
+    const before = this.deps.store.count()
+    this.deps.store.remove(new Set([id]))
+    const ok = this.deps.store.count() < before
+    if (ok) this.emit('state', this.state)
+    return ok
   }
 
   setEnabled(enabled: boolean): FeedbackState {
@@ -127,6 +143,7 @@ export class Feedback extends EventEmitter {
       itemId: draft.itemId,
       itemRank: draft.itemRank,
       reasonCode: draft.reasonCode,
+      comment: null,
       hadSkeleton: !!rec?.skeleton,
       skeletonGames: rec?.skeleton?.games ?? null,
       snapshot: {
@@ -147,28 +164,38 @@ export class Feedback extends EventEmitter {
     this.deps.store.append(report)
     logger.info(`feedback: signalement enregistré (${report.champion}, item ${report.itemId})`)
     this.emit('state', this.state)
-    void this.flush()
     return true
   }
 
-  /** Vide la file vers Supabase. Silencieux en cas d'échec (on réessaiera). */
-  async flush(): Promise<void> {
-    if (this.flushing) return
-    if (!this.deps.config.get('feedbackEnabled') || !isConfigured()) return
+  /**
+   * Envoie la file vers Supabase. **Déclenché à la main** depuis l'app. Ce qui
+   * n'est pas parti reste en file : on ne perd jamais un rapport.
+   */
+  async push(): Promise<FeedbackPushResult> {
     const pending = this.deps.store.readAll()
-    if (pending.length === 0) return
+    const idle = (error: FeedbackPushResult['error']): FeedbackPushResult => ({
+      sent: 0,
+      remaining: pending.length,
+      error,
+    })
+    if (pending.length === 0) return { sent: 0, remaining: 0, error: null }
+    if (this.pushing) return idle('network')
+    if (!this.deps.config.get('feedbackEnabled')) return idle('disabled')
+    if (!isConfigured()) return idle('not-configured')
 
-    this.flushing = true
+    this.pushing = true
     try {
       const sent = await insertReports(pending, this.deps.post)
       if (sent.length > 0) {
         this.deps.store.remove(new Set(sent))
         this.lastSentAt = new Date((this.deps.now ?? Date.now)()).toISOString()
         logger.info(`feedback: ${sent.length} signalement(s) envoyé(s)`)
-        this.emit('state', this.state)
       }
+      const remaining = this.deps.store.count()
+      this.emit('state', this.state)
+      return { sent: sent.length, remaining, error: remaining > 0 ? 'network' : null }
     } finally {
-      this.flushing = false
+      this.pushing = false
     }
   }
 }

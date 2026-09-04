@@ -94,20 +94,20 @@ describe('Feedback.report', () => {
       },
     ]
     const { fb, store } = setup({ getHistory: () => steps })
-    fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
     expect(store.readAll()[0].snapshot.history).toEqual(steps)
   })
 
   it('omet le champ historique plutôt que d’envoyer un tableau vide', () => {
     const { fb, store } = setup({ getHistory: () => [] })
-    fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
     expect(store.readAll()[0].snapshot).not.toHaveProperty('history')
   })
 
   it('génère et réutilise un installId anonyme', () => {
     const { fb, store } = setup()
-    fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })
-    fb.report({ itemId: 6333, itemRank: 0, reasonCode: null })
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
+    fb.report({ itemId: 6333, itemRank: 0, reasonCode: 'other' })
     const ids = new Set(store.readAll().map((r) => r.installId))
     expect(ids.size).toBe(1)
     expect([...ids][0]).toMatch(/^[0-9a-f-]{36}$/)
@@ -115,42 +115,90 @@ describe('Feedback.report', () => {
 
   it('refuse hors partie', () => {
     const { fb, store } = setup({ getAdvice: () => IDLE_ADVICE })
-    expect(fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })).toBe(false)
+    expect(fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })).toBe(false)
     expect(store.count()).toBe(0)
   })
 
   it('déduplique un même (champion, item) dans la fenêtre anti-spam', () => {
     const { fb, store } = setup()
-    expect(fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })).toBe(true)
-    expect(fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })).toBe(false)
+    expect(fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })).toBe(true)
+    expect(fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })).toBe(false)
     // un autre item passe
-    expect(fb.report({ itemId: 6333, itemRank: 0, reasonCode: null })).toBe(true)
+    expect(fb.report({ itemId: 6333, itemRank: 0, reasonCode: 'other' })).toBe(true)
     expect(store.count()).toBe(2)
   })
 })
 
-describe('Feedback.flush', () => {
-  it('vide la file quand l’envoi réussit', async () => {
-    const { fb, store, post } = setup()
-    fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })
-    vi.stubEnv('HEXTECH_SUPABASE_URL', 'https://x.supabase.co')
-    vi.stubEnv('HEXTECH_SUPABASE_ANON_KEY', 'k')
-    await fb.flush()
-    // Non configuré au moment de l'import du module : l'envoi est inerte,
-    // la file est donc conservée (comportement voulu : on réessaiera).
-    expect(store.count()).toBe(1)
+describe('Feedback.push — envoi manuel', () => {
+  it('ne part jamais tout seul : signaler ne déclenche aucun envoi', () => {
+    const { fb, post } = setup()
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
     expect(post).not.toHaveBeenCalled()
-    vi.unstubAllEnvs()
   })
 
-  it('ne perd rien si le réseau échoue', async () => {
-    const { fb, store } = setup({
-      post: vi.fn(async () => {
-        throw new Error('offline')
-      }),
-    })
-    fb.report({ itemId: 3083, itemRank: 0, reasonCode: null })
-    await fb.flush()
-    expect(store.count()).toBe(1)
+  it('refuse d’envoyer quand les identifiants Supabase manquent', async () => {
+    const { fb, post } = setup()
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
+    // Le module lit ses identifiants à l'import : ce build n'en a pas.
+    expect(await fb.push()).toEqual({ sent: 0, remaining: 1, error: 'not-configured' })
+    expect(post).not.toHaveBeenCalled()
+  })
+
+  it('refuse d’envoyer quand l’utilisateur a coupé les signalements', async () => {
+    const { fb } = setup()
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
+    fb.setEnabled(false)
+    expect((await fb.push()).error).toBe('disabled')
+  })
+
+  it('file vide : envoi sans effet et sans erreur', async () => {
+    const { fb } = setup()
+    expect(await fb.push()).toEqual({ sent: 0, remaining: 0, error: null })
+  })
+})
+
+describe('Feedback — précisions et rejet', () => {
+  it('ajoute des précisions à un rapport en attente', () => {
+    const { fb, store } = setup()
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'wrong-order' })
+    const [r] = store.readAll()
+    expect(r.comment).toBeNull()
+
+    expect(fb.annotate(r.id, '  il fallait Trinité avant  ')).toBe(true)
+    expect(store.readAll()[0].comment).toBe('il fallait Trinité avant')
+  })
+
+  it('un commentaire vide repasse à null plutôt qu’à une chaîne vide', () => {
+    const { fb, store } = setup()
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
+    const [r] = store.readAll()
+    fb.annotate(r.id, '   ')
+    expect(store.readAll()[0].comment).toBeNull()
+  })
+
+  it('annoter un rapport inconnu échoue proprement', () => {
+    const { fb } = setup()
+    expect(fb.annotate('jamais-vu', 'x')).toBe(false)
+  })
+
+  it('jette un rapport sans l’envoyer', () => {
+    const { fb, store } = setup()
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
+    const [r] = store.readAll()
+    expect(fb.discard(r.id)).toBe(true)
+    expect(store.count()).toBe(0)
+    expect(fb.discard(r.id)).toBe(false)
+  })
+
+  it('liste du plus récent au plus ancien', () => {
+    const { fb } = setup()
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
+    fb.report({ itemId: 6333, itemRank: 0, reasonCode: 'other' })
+    expect(fb.list().map((r) => r.itemId)).toEqual([6333, 3083])
+  })
+
+  it('expose si ce build sait envoyer', () => {
+    const { fb } = setup()
+    expect(fb.state.configured).toBe(false)
   })
 })

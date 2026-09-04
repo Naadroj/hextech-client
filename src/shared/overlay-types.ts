@@ -35,11 +35,11 @@ export const OVERLAY_SIZE_BOUNDS = {
   maxHeight: 340,
 }
 
-/** Mode réduit : juste l'icône du prochain item et les deux boutons. */
-export const OVERLAY_COMPACT_RATIO = { width: 0.06, height: 0.045 }
+/** Mode réduit : l'icône du prochain item, le switch d'axe et les deux boutons. */
+export const OVERLAY_COMPACT_RATIO = { width: 0.075, height: 0.045 }
 export const OVERLAY_COMPACT_BOUNDS = {
-  minWidth: 96,
-  maxWidth: 170,
+  minWidth: 132,
+  maxWidth: 190,
   minHeight: 42,
   maxHeight: 72,
 }

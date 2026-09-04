@@ -213,8 +213,12 @@ export function stubLcuBridge(
 
   const feedback: FeedbackBridge = {
     getState: vi.fn(async () => ({ ...IDLE_FEEDBACK_STATE })),
-    send: vi.fn(async () => true),
+    report: vi.fn(async () => true),
     setEnabled: vi.fn(async (enabled: boolean) => ({ ...IDLE_FEEDBACK_STATE, enabled })),
+    list: vi.fn(async () => []),
+    annotate: vi.fn(async () => true),
+    discard: vi.fn(async () => true),
+    push: vi.fn(async () => ({ sent: 0, remaining: 0, error: null })),
     onState: (cb) => {
       feedbackStateCbs.push(cb)
       return () => {

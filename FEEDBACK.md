@@ -14,9 +14,10 @@ non-régression** en une commande.
 
 ## Ce qui est envoyé
 
-Champion, rôle, niveau, or, items des 10 joueurs, menace, l'item contesté, la
-catégorie optionnelle, la version de l'app et le patch — plus un **UUID
-d'installation anonyme**. Aucun pseudo, aucun Riot ID, aucun puuid.
+Champion, rôle, niveau, or, items des 10 joueurs, menace, l'item contesté, le
+motif (**obligatoire**), les précisions libres saisies dans l'app, la version de
+l'app et le patch — plus un **UUID d'installation anonyme**. Aucun pseudo, aucun
+Riot ID, aucun puuid.
 
 S'y ajoute le **fil des propositions de la partie en cours** (30 dernières au
 plus), dans `snapshot.history`. C'est ce qui rend un signalement lisible : sans
@@ -24,10 +25,19 @@ lui on voit l'item contesté, avec lui on voit *le chemin* qui y a mené — l'o
 le niveau et l'axe à chaque étape. Il vit dans la colonne `snapshot` (jsonb),
 donc rien à migrer côté table, et le rejeu golden l'ignore.
 
-Activé par défaut ; interrupteur dans **Réglages → Signalements**. Le clic écrit
-d'abord dans une file locale (`%APPDATA%/hextech-client/feedback/pending.jsonl`)
-— il ne dépend jamais du réseau — puis l'envoi part au lancement et toutes les
-5 min, par lots idempotents.
+## Le parcours : deux temps
+
+**En jeu**, l'icône bug de l'overlay ouvre le choix du motif. Il n'y a pas de
+signalement en un clic : sans motif un rapport n'est pas exploitable — on ne
+sait ni quoi rejouer ni quoi corriger. Le clic écrit dans une file locale
+(`%APPDATA%/hextech-client/feedback/pending.jsonl`) et s'arrête là.
+
+**Après la partie**, l'onglet **Signalements** de l'app relit la file, laisse
+ajouter des précisions à froid (« j'aurais pris Trinité, il était à 3 items »)
+et **c'est le seul endroit d'où quelque chose part** : un bouton « Envoyer »,
+jamais de vidage automatique. Ce qui n'est pas parti reste en file.
+
+Activé par défaut ; interrupteur dans **Réglages → Signalements**.
 
 ## Mise en place Supabase (une fois)
 
@@ -45,13 +55,17 @@ create table feedback (
   completed_items int not null,
   item_id        int,
   item_rank      int  not null,
-  reason_code    text,
+  reason_code    text not null,
+  comment        text,
   had_skeleton   boolean not null,
   skeleton_games int,
   snapshot       jsonb not null
 );
 create index on feedback (champion, role);
 create index on feedback (created_at desc);
+
+-- Table déjà créée avant la v0.1.12 ? Une seule ligne à jouer :
+--   alter table feedback add column if not exists comment text;
 
 -- RLS : le client ne peut QU'insérer. Aucune lecture avec la clé anon.
 alter table feedback enable row level security;

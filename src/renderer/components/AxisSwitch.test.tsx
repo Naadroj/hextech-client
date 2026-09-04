@@ -14,9 +14,15 @@ describe('AxisSwitch — vue Coach', () => {
   beforeEach(() => stubLcuBridge())
   afterEach(() => clearLcuBridge())
 
-  it('reste caché quand le champion n’a pas de variante d’axe', () => {
+  it('reste disponible même sans variante de build — c’est une orientation, pas une stat', () => {
     render(<CoachView advice={makeCoachAdvice({ axisSwitchAvailable: false })} />)
-    expect(screen.queryByRole('group', { name: 'Axe de dégâts' })).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Axe de dégâts' })).toBeInTheDocument()
+    expect(screen.queryByText(/Build hi-elo distinct par axe/)).not.toBeInTheDocument()
+  })
+
+  it('signale quand le livre a bien deux variantes pour ce champion', () => {
+    render(<CoachView advice={makeCoachAdvice({ axisSwitchAvailable: true })} />)
+    expect(screen.getByText(/Build hi-elo distinct par axe/)).toBeInTheDocument()
   })
 
   it('s’affiche sur un champion bimodal, « Auto » actif par défaut', () => {
@@ -46,25 +52,28 @@ describe('AxisSwitch — overlay', () => {
   beforeEach(() => stubLcuBridge())
   afterEach(() => clearLcuBridge())
 
-  it('mode réduit : pastille AD/AP seulement quand l’axe est forcé', () => {
-    const { rerender } = render(
-      <OverlayView advice={makeCoachAdvice({ axisSwitchAvailable: true })} />,
-    )
-    expect(screen.queryByLabelText(/Axe forcé/)).not.toBeInTheDocument()
-    rerender(
-      <OverlayView advice={makeCoachAdvice({ axisSwitchAvailable: true, axisOverride: 'magic' })} />,
-    )
-    expect(screen.getByLabelText('Axe forcé AP')).toBeInTheDocument()
+  it('mode réduit : un bouton unique qui montre l’axe courant', () => {
+    const { rerender } = render(<OverlayView advice={makeCoachAdvice()} />)
+    expect(screen.getByLabelText('Axe de dégâts : AUTO')).toBeInTheDocument()
+    rerender(<OverlayView advice={makeCoachAdvice({ axisOverride: 'magic' })} />)
+    expect(screen.getByLabelText('Axe de dégâts : AP')).toBeInTheDocument()
+  })
+
+  it('mode réduit : le bouton fait tourner Auto → AD → AP', () => {
+    const { coach } = stubLcuBridge()
+    render(<OverlayView advice={makeCoachAdvice()} />)
+    fireEvent.click(screen.getByLabelText('Axe de dégâts : AUTO'))
+    expect(coach.setAxis).toHaveBeenCalledWith('physical')
   })
 
   it('mode réduit : pas de segmenté, il n’y a pas la place', () => {
-    render(<OverlayView advice={makeCoachAdvice({ axisSwitchAvailable: true })} />)
+    render(<OverlayView advice={makeCoachAdvice()} />)
     expect(screen.queryByRole('group', { name: 'Axe de dégâts' })).not.toBeInTheDocument()
   })
 
   it('mode déplié : le segmenté est là et pilote le main', async () => {
     const { coach } = stubLcuBridge()
-    render(<OverlayView advice={makeCoachAdvice({ axisSwitchAvailable: true })} />)
+    render(<OverlayView advice={makeCoachAdvice()} />)
     fireEvent.click(screen.getByLabelText('Déplier'))
     const group = await screen.findByRole('group', { name: 'Axe de dégâts' })
     expect(group).toBeInTheDocument()

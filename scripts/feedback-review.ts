@@ -87,6 +87,22 @@ for (const row of rows) {
       `  → aujourd'hui: ${now}  [${reason}]${changed ? '  ✓ changé' : ''}`,
   )
 
+  // Les précisions saisies dans l'app : c'est là qu'est l'information utile.
+  const comment = (row as Record<string, unknown>).comment
+  if (typeof comment === 'string' && comment.trim()) {
+    console.log(`          « ${comment.trim()} »`)
+  }
+
+  // Fil des propositions de la partie, s'il a été joint.
+  const history = snap.history
+  if (history?.length) {
+    const trail = history
+      .slice(-6)
+      .map((h) => `${Math.floor(h.t / 60)}′ ${h.primary?.name ?? '—'}`)
+      .join(' → ')
+    console.log(`          fil : ${trail}`)
+  }
+
   if (freezeId && id.startsWith(freezeId)) {
     mkdirSync(SCENARIOS_DIR, { recursive: true })
     const file = resolve(SCENARIOS_DIR, `feedback-${champion.toLowerCase()}-${id.slice(0, 8)}.json`)

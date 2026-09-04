@@ -58,6 +58,20 @@ export class FeedbackStore {
     this.write(keep)
   }
 
+  /**
+   * Applique une modification à un rapport en attente (ajout de précisions
+   * depuis l'app). `false` si l'id n'est pas / plus en file — il a pu être
+   * envoyé entre-temps.
+   */
+  patch(id: string, changes: Partial<FeedbackReport>): boolean {
+    const all = this.readAll()
+    const i = all.findIndex((r) => r.id === id)
+    if (i < 0) return false
+    all[i] = { ...all[i], ...changes, id: all[i].id }
+    this.write(all)
+    return true
+  }
+
   clear(): void {
     try {
       rmSync(this.filePath, { force: true })

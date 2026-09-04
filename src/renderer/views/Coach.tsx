@@ -172,19 +172,18 @@ export function CoachView({ advice }: { advice: CoachAdvice }) {
       >
         {rec?.primary ? (
           <div className="space-y-5">
-            {axisSwitch.available && (
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="font-display text-[10px] uppercase tracking-hexwide text-gold-700">
-                  Axe de dégâts
-                </span>
-                <AxisSwitch value={axisSwitch.axis} onChange={axisSwitch.setAxis} />
-                <span className="text-xs text-parchment">
-                  {axisSwitch.axis
-                    ? 'Build forcé — les items neutres restent proposés.'
-                    : 'Déduit de tes items ; ce champion se joue AD et AP.'}
-                </span>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="font-display text-[10px] uppercase tracking-hexwide text-gold-700">
+                Axe de dégâts
+              </span>
+              <AxisSwitch value={axisSwitch.axis} onChange={axisSwitch.setAxis} />
+              <span className="text-xs text-parchment">
+                {axisSwitch.axis
+                  ? 'Oriente les prochains achats — les items neutres (armure, antisoin, QSS) restent proposés.'
+                  : 'Déduit de tes items déjà achetés.'}
+                {axisSwitch.available && ' Build hi-elo distinct par axe pour ce champion.'}
+              </span>
+            </div>
 
             <ItemRow item={rec.primary} primary version={version} />
 

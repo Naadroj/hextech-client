@@ -13,7 +13,12 @@ import type { BuildAxis } from './build-types'
 import type { HistoryGame, HistoryGameSummary } from './history-types'
 import type { UpdateState, UpdaterInfo } from './update-types'
 import type { OverlayState } from './overlay-types'
-import type { FeedbackDraft, FeedbackState } from './feedback-types'
+import type {
+  FeedbackDraft,
+  FeedbackPushResult,
+  FeedbackReport,
+  FeedbackState,
+} from './feedback-types'
 
 export interface WindowControls {
   minimize: () => Promise<void>
@@ -153,9 +158,16 @@ export interface OverlayBridge {
  */
 export interface FeedbackBridge {
   getState: () => Promise<FeedbackState>
-  /** `false` si hors partie ou doublon récent. */
-  send: (draft: FeedbackDraft) => Promise<boolean>
+  /** Met en file un signalement. `false` si hors partie ou doublon récent. */
+  report: (draft: FeedbackDraft) => Promise<boolean>
   setEnabled: (enabled: boolean) => Promise<FeedbackState>
+  /** Rapports en attente, du plus récent au plus ancien. */
+  list: () => Promise<FeedbackReport[]>
+  /** Ajoute des précisions à un rapport en attente. */
+  annotate: (id: string, comment: string) => Promise<boolean>
+  discard: (id: string) => Promise<boolean>
+  /** Envoi manuel vers la base — le seul moment où quelque chose sort. */
+  push: () => Promise<FeedbackPushResult>
   onState: (cb: (state: FeedbackState) => void) => () => void
 }
 
@@ -232,8 +244,12 @@ export const IpcChannels = {
   overlayState: 'overlay:state',
 
   feedbackGetState: 'feedback:get-state',
-  feedbackSend: 'feedback:send',
+  feedbackReport: 'feedback:report',
   feedbackSetEnabled: 'feedback:set-enabled',
+  feedbackList: 'feedback:list',
+  feedbackAnnotate: 'feedback:annotate',
+  feedbackDiscard: 'feedback:discard',
+  feedbackPush: 'feedback:push',
   feedbackState: 'feedback:state',
 } as const
 
