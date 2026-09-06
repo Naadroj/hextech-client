@@ -8,7 +8,6 @@ import { useCoach } from '../lib/useCoach'
 import { useStaticData } from '../lib/useStaticData'
 import { getOverlay, setOverlayInteractive } from '../lib/overlayBridge'
 import { getFeedback } from '../lib/feedbackBridge'
-import { FEEDBACK_REASONS, type FeedbackReason } from '@shared/feedback-types'
 
 /**
  * Vue de l'overlay in-game : carte compacte, semi-transparente, déplaçable.
@@ -129,32 +128,25 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
   const primary = rec?.primary ?? null
 
   /**
-   * Signalement : **jamais en un clic**. Le bouton bug ouvre le choix du motif ;
-   * sans motif le rapport ne serait pas exploitable. En mode réduit il n'y a pas
-   * la place, donc on déplie d'abord.
+   * Signalement : **un clic, sans rien demander**. En pleine partie, choisir un
+   * motif dans une liste coûtait plus d'attention que ça n'en valait la peine —
+   * le motif se choisit à froid dans l'onglet Signalements, où il y a la place.
+   * Le rapport part donc avec `other`, à préciser après la partie.
    */
-  const [reporting, setReporting] = useState(false)
   const [flagged, setFlagged] = useState(false)
 
-  const openReport = (): void => {
-    setFlagged(false)
-    setReporting(true)
-    if (compact) toggleCompact()
-  }
-
-  const flag = (reasonCode: FeedbackReason): void => {
+  const flag = (): void => {
     try {
       void getFeedback()
-        .report({ itemId: primary?.itemId ?? null, itemRank: 0, reasonCode })
+        .report({ itemId: primary?.itemId ?? null, itemRank: 0, reasonCode: 'other' })
         .then((ok) => {
-          setReporting(false)
           if (!ok) return
           setFlagged(true)
           window.setTimeout(() => setFlagged(false), 3000)
         })
-        .catch(() => setReporting(false))
+        .catch(() => undefined)
     } catch {
-      setReporting(false) // hors Electron
+      /* hors Electron */
     }
   }
 
@@ -166,10 +158,10 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
         type="button"
         aria-label="Signaler un item incohérent"
         title="Signaler : cet item n’est pas cohérent"
-        onClick={openReport}
+        onClick={flag}
         disabled={!primary}
         className={`px-1 ${
-          flagged ? 'text-ok' : reporting ? 'text-warn' : 'text-gold-700 hover:text-warn'
+          flagged ? 'text-ok' : 'text-gold-700 hover:text-warn'
         } disabled:opacity-30`}
       >
         {flagged ? <span className="text-xs">✓</span> : <BugIcon />}
@@ -259,37 +251,9 @@ export function OverlayView({ advice: injected }: { advice?: CoachAdvice } = {})
                     <p className="text-[11px] leading-snug text-gold-100/80">• {primary.reasons[0]}</p>
                   )}
 
-                  {reporting && (
-                    <div
-                      className="space-y-1 border border-warn/50 bg-warn/5 p-1.5"
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      <div className="text-[10px] text-gold-700">Qu’est-ce qui cloche ?</div>
-                      <div className="flex flex-wrap items-center gap-1">
-                        {FEEDBACK_REASONS.map((r) => (
-                          <button
-                            key={r.code}
-                            type="button"
-                            onClick={() => flag(r.code)}
-                            className="border border-gold-800/70 px-1.5 py-0.5 text-[10px] text-parchment hover:border-warn hover:text-warn"
-                          >
-                            {r.label}
-                          </button>
-                        ))}
-                        <button
-                          type="button"
-                          onClick={() => setReporting(false)}
-                          className="px-1 text-[10px] text-gold-700 hover:text-gold-100"
-                        >
-                          Annuler
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   {flagged && (
                     <p className="text-[10px] text-ok">
-                      Enregistré. À compléter et envoyer depuis l’onglet Signalements.
+                      Enregistré. Motif et précisions dans l’onglet Signalements.
                     </p>
                   )}
 

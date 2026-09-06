@@ -11,7 +11,15 @@ export interface RegisterFeedbackIpcDeps {
   ipcMain: IpcMainLike
   feedback: Pick<
     Feedback,
-    'state' | 'report' | 'setEnabled' | 'list' | 'annotate' | 'discard' | 'push' | 'on' | 'off'
+    | 'state'
+    | 'report'
+    | 'setEnabled'
+    | 'list'
+    | 'annotate'
+    | 'discard'
+    | 'push'
+    | 'on'
+    | 'off'
   >
   /** Fenêtres à notifier (principale **et** overlay : les deux affichent l'état). */
   getSenders: () => SenderLike[]

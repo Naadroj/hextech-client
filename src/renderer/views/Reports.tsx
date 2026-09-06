@@ -10,9 +10,10 @@ import { useStaticData } from '../lib/useStaticData'
 /**
  * Relecture des signalements avant envoi.
  *
- * Le clic en jeu ne capture qu'un motif — c'est tout ce qu'on peut demander en
- * pleine partie. Le vrai contenu s'écrit ici, à froid : ce qu'on aurait acheté
- * et pourquoi. Et **rien ne part sans un clic sur « Envoyer »**.
+ * Le clic en jeu ne capture rien d'autre que l'instant — c'est tout ce qu'on
+ * peut demander en pleine partie. Le contenu s'écrit ici, à froid, en texte
+ * libre : ce qu'on aurait acheté et pourquoi. Et **rien ne part sans un clic
+ * sur « Envoyer »**.
  *
  * On envoie ce qu'on veut, quand on veut : un rapport isolé, une sélection, ou
  * tout. Une fois parti, un rapport reste listé mais devient **verrouillé** — la
@@ -75,7 +76,11 @@ function ReportCard({
         )}
         <span className={sent ? 'text-parchment' : 'text-gold-100'}>{report.champion}</span>
         <Tag>{report.role}</Tag>
-        <Tag tone="cyan">{FEEDBACK_REASON_LABELS[report.reasonCode]}</Tag>
+        {/* Plus de motif à choisir : le texte libre dit tout. On garde
+            l'affichage pour les rapports d'avant, qui en portent un vrai. */}
+        {report.reasonCode !== 'other' && (
+          <Tag tone="cyan">{FEEDBACK_REASON_LABELS[report.reasonCode]}</Tag>
+        )}
         <span className="text-xs text-parchment">
           niv {report.level} · {report.completedItems} item(s)
         </span>
@@ -191,9 +196,9 @@ export function Reports() {
     <div className="mx-auto max-w-3xl space-y-6">
       <Frame title="Signalements">
         <p className="text-parchment">
-          Le bouton bug de l'overlay enregistre un motif, rien de plus — en pleine partie c'est tout
-          ce qu'on peut demander. Complète-les ici, puis envoie ceux que tu veux. Rien ne part tout
-          seul, et un rapport envoyé n'est plus modifiable.
+          Le bouton bug de l'overlay capture la situation en un clic, rien de plus — en pleine
+          partie c'est tout ce qu'on peut demander. Explique ici ce qui clochait, puis envoie ceux
+          que tu veux. Rien ne part tout seul, et un rapport envoyé n'est plus modifiable.
         </p>
 
         {blocked && (

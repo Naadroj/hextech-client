@@ -163,12 +163,18 @@ items portent AD *et* magique (Kaï'Sa).
 
 ### Signalements, en deux temps
 
-- **En jeu** : l'icône bug de l'overlay ouvre le choix du motif. Pas de
-  signalement en un clic, et **jamais sans motif** — sans lui un rapport n'est
-  pas exploitable. Le clic écrit dans une file locale JSONL, et s'arrête là.
-- **Après la partie** : l'onglet **Signalements** relit la file, permet d'ajouter
-  des précisions à froid, de jeter un rapport, et **c'est le seul endroit d'où
-  quelque chose part** (bouton « Envoyer »). Aucun vidage automatique.
+- **En jeu** : l'icône bug de l'overlay signale **en un clic**, sans rien
+  demander ni déplier. Choisir un motif dans une liste coûtait trop d'attention
+  en pleine partie ; ce qui compte à cet instant, c'est l'instantané. Le clic
+  écrit dans une file locale JSONL, et s'arrête là.
+- **Après la partie** : l'onglet **Signalements** relit la file, permet
+  d'expliquer à froid en texte libre, de jeter un rapport, et **c'est le seul
+  endroit d'où quelque chose part**. Aucun vidage automatique. On envoie un
+  rapport isolé, une sélection cochée, ou tout ; **un rapport envoyé reste listé
+  mais devient verrouillé**.
+
+  `reason_code` vaut désormais toujours `other` — le motif en liste a été retiré
+  en `v0.1.14`, la colonne reste pour les lignes d'avant.
 
 Un signalement a exactement la forme d'une fixture golden : `snapshot.live` se
 rejoue tel quel avec `assessGame` → `recommend`. `npm run feedback:review --

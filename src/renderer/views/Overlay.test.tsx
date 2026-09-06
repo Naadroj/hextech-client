@@ -29,14 +29,21 @@ describe('OverlayView — mode réduit (défaut)', () => {
     expect(screen.queryByLabelText('Fermer l’overlay')).not.toBeInTheDocument()
   })
 
-  it('le bouton bug n’envoie rien tout seul : il déplie et demande le motif', async () => {
+  it('le bouton bug signale en un clic, sans déplier ni rien demander', async () => {
+    // En pleine partie, choisir un motif dans une liste coûtait plus d'attention
+    // que ça n'en valait la peine : il se choisit à froid, dans l'onglet.
     const { feedback, overlay } = stubLcuBridge()
     render(<OverlayView advice={makeCoachAdvice()} />)
     fireEvent.click(screen.getByLabelText('Signaler un item incohérent'))
 
-    expect(feedback.report).not.toHaveBeenCalled()
-    expect(overlay.setCompact).toHaveBeenCalledWith(false)
-    expect(await screen.findByText(/Qu’est-ce qui cloche/)).toBeInTheDocument()
+    expect(feedback.report).toHaveBeenCalledWith({
+      itemId: 3139,
+      itemRank: 0,
+      reasonCode: 'other',
+    })
+    // Il ne déplie plus rien : en mode réduit l'accusé de réception est le ✓.
+    expect(overlay.setCompact).not.toHaveBeenCalledWith(false)
+    expect(await screen.findByText('✓')).toBeInTheDocument()
   })
 
   it('reste déplaçable', () => {
@@ -75,31 +82,29 @@ describe('OverlayView — dépliage', () => {
     expect(screen.queryByText('Mauvais axe AD/AP')).not.toBeInTheDocument()
   })
 
-  it('choisir un motif met le rapport en file et accuse réception', async () => {
+  it('met le rapport en file et accuse réception, sans rien envoyer en réseau', async () => {
     const { feedback } = stubLcuBridge()
     render(<OverlayView advice={makeCoachAdvice()} />)
     fireEvent.click(screen.getByLabelText('Déplier'))
     fireEvent.click(screen.getByLabelText('Signaler un item incohérent'))
-    fireEvent.click(screen.getByText('Mauvais axe AD/AP'))
 
     expect(feedback.report).toHaveBeenCalledWith({
       itemId: 3139,
       itemRank: 0,
-      reasonCode: 'wrong-axis',
+      reasonCode: 'other',
     })
-    // Pas d'envoi réseau : le rapport attend dans l'onglet Signalements.
+    // Le rapport attend dans l'onglet Signalements : rien ne part d'ici.
     expect(feedback.push).not.toHaveBeenCalled()
     expect(await screen.findByText(/onglet Signalements/)).toBeInTheDocument()
   })
 
-  it('on peut renoncer sans rien envoyer', () => {
-    const { feedback } = stubLcuBridge()
+  it('ne demande plus de motif en jeu', () => {
+    stubLcuBridge()
     render(<OverlayView advice={makeCoachAdvice()} />)
     fireEvent.click(screen.getByLabelText('Déplier'))
     fireEvent.click(screen.getByLabelText('Signaler un item incohérent'))
-    fireEvent.click(screen.getByText('Annuler'))
+    expect(screen.queryByText(/Qu’est-ce qui cloche/)).not.toBeInTheDocument()
     expect(screen.queryByText('Mauvais axe AD/AP')).not.toBeInTheDocument()
-    expect(feedback.report).not.toHaveBeenCalled()
   })
 
   it('déplié, toujours ni or ni chrono', () => {

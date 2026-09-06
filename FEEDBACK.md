@@ -14,10 +14,14 @@ non-régression** en une commande.
 
 ## Ce qui est envoyé
 
-Champion, rôle, niveau, or, items des 10 joueurs, menace, l'item contesté, le
-motif (**obligatoire**), les précisions libres saisies dans l'app, la version de
-l'app et le patch — plus un **UUID d'installation anonyme**. Aucun pseudo, aucun
-Riot ID, aucun puuid.
+Champion, rôle, niveau, or, items des 10 joueurs, menace, l'item contesté, les
+précisions libres saisies dans l'app, la version de l'app et le patch — plus un
+**UUID d'installation anonyme**. Aucun pseudo, aucun Riot ID, aucun puuid.
+
+`reason_code` reste dans la table mais vaut désormais toujours `other` : le motif
+en liste a été retiré, le texte libre le remplace. Les lignes d'avant la `v0.1.14`
+portent un vrai motif, d'où le maintien de la colonne et de son affichage quand
+il ne vaut pas `other`.
 
 S'y ajoute le **fil des propositions de la partie en cours** (30 dernières au
 plus), dans `snapshot.history`. C'est ce qui rend un signalement lisible : sans
@@ -27,15 +31,16 @@ donc rien à migrer côté table, et le rejeu golden l'ignore.
 
 ## Le parcours : deux temps
 
-**En jeu**, l'icône bug de l'overlay ouvre le choix du motif. Il n'y a pas de
-signalement en un clic : sans motif un rapport n'est pas exploitable — on ne
-sait ni quoi rejouer ni quoi corriger. Le clic écrit dans une file locale
+**En jeu**, l'icône bug de l'overlay signale **en un clic**, sans rien demander
+et sans déplier quoi que ce soit. Le choix d'un motif dans une liste coûtait plus
+d'attention que ça n'en valait la peine en pleine partie ; ce qui compte à cet
+instant, c'est de capturer l'instantané. Le clic écrit dans une file locale
 (`%APPDATA%/hextech-client/feedback/pending.jsonl`) et s'arrête là.
 
 **Après la partie**, l'onglet **Signalements** de l'app relit la file, laisse
-ajouter des précisions à froid (« j'aurais pris Trinité, il était à 3 items »)
-et **c'est le seul endroit d'où quelque chose part** : jamais de vidage
-automatique, et ce qui n'est pas parti reste en attente.
+ajouter à froid, en texte libre, ce qui clochait (« j'aurais pris Trinité, il
+était à 3 items ») et **c'est le seul endroit d'où quelque chose part** : jamais
+de vidage automatique, et ce qui n'est pas parti reste en attente.
 
 On choisit ce qui part : « Envoyer celui-ci » sur une carte, une sélection
 cochée, ou tout. Envoyer un rapport enregistre d'abord ses précisions non
