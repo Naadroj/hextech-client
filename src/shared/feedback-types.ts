@@ -62,6 +62,15 @@ export interface FeedbackReport {
   reasonCode: FeedbackReason
   /** Précisions ajoutées après coup depuis l'onglet Signalements. */
   comment: string | null
+  /**
+   * Horodatage de l'envoi en base (ISO), `null`/absent tant qu'il est en file.
+   *
+   * **Purement local** : la colonne n'existe pas côté Supabase, et `toRow()` ne
+   * l'envoie pas. Un rapport envoyé reste dans la file pour rester consultable,
+   * mais devient **non modifiable** — la ligne est en base, la modifier ici ne
+   * la changerait pas là-bas et donnerait l'illusion du contraire.
+   */
+  sentAt?: string | null
   hadSkeleton: boolean
   skeletonGames: number | null
   /** Même forme qu'une fixture golden : rejouable tel quel. */
@@ -89,7 +98,7 @@ export interface FeedbackReport {
 export interface FeedbackState {
   /** Envoi des signalements autorisé (interrupteur des Réglages). */
   enabled: boolean
-  /** Rapports en attente d'envoi (file locale). */
+  /** Rapports **pas encore envoyés** (les envoyés restent listés, verrouillés). */
   pending: number
   /** Dernier envoi réussi (ISO) ou `null`. */
   lastSentAt: string | null

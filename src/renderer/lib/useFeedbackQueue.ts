@@ -3,7 +3,8 @@ import type { FeedbackPushResult, FeedbackReport } from '@shared/feedback-types'
 import { getFeedback } from './feedbackBridge'
 
 /**
- * File des signalements en attente. Rien ne part tant que `push()` n'est pas
+ * Liste des signalements — en attente **et** déjà envoyés, ces derniers restant
+ * consultables mais verrouillés. Rien ne part tant que `push()` n'est pas
  * appelé : c'est le seul moment où un rapport quitte la machine.
  */
 export function useFeedbackQueue(reloadKey?: unknown): {
@@ -13,7 +14,8 @@ export function useFeedbackQueue(reloadKey?: unknown): {
   result: FeedbackPushResult | null
   annotate: (id: string, comment: string) => Promise<void>
   discard: (id: string) => Promise<void>
-  push: () => Promise<void>
+  /** `ids` restreint à une sélection ; sans lui, tout ce qui attend part. */
+  push: (ids?: readonly string[]) => Promise<void>
   reload: () => void
 } {
   const [reports, setReports] = useState<FeedbackReport[]>([])
@@ -66,17 +68,20 @@ export function useFeedbackQueue(reloadKey?: unknown): {
     [reload],
   )
 
-  const push = useCallback(async () => {
-    setPushing(true)
-    try {
-      setResult(await getFeedback().push())
-    } catch {
-      setResult({ sent: 0, remaining: reports.length, error: 'network', detail: null })
-    } finally {
-      setPushing(false)
-      reload()
-    }
-  }, [reload, reports.length])
+  const push = useCallback(
+    async (ids?: readonly string[]) => {
+      setPushing(true)
+      try {
+        setResult(await getFeedback().push(ids))
+      } catch {
+        setResult({ sent: 0, remaining: reports.length, error: 'network', detail: null })
+      } finally {
+        setPushing(false)
+        reload()
+      }
+    },
+    [reload, reports.length],
+  )
 
   return { reports, loading, pushing, result, annotate, discard, push, reload }
 }

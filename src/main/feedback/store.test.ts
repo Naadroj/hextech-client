@@ -63,6 +63,28 @@ describe('FeedbackStore', () => {
     expect(s.readAll().map((r) => r.id)).toEqual(['b'])
   })
 
+  it('marque comme envoyés au lieu de supprimer, et ne les compte plus en attente', () => {
+    const s = new FeedbackStore(file)
+    s.append(report('a'))
+    s.append(report('b'))
+    s.markSent(new Set(['a']), '2026-09-06T10:00:00.000Z')
+
+    expect(s.count()).toBe(2)
+    expect(s.countPending()).toBe(1)
+    expect(s.pending().map((r) => r.id)).toEqual(['b'])
+    expect(s.readAll().find((r) => r.id === 'a')?.sentAt).toBe('2026-09-06T10:00:00.000Z')
+  })
+
+  it('refuse de modifier un rapport déjà envoyé', () => {
+    // La ligne est en base : la retoucher ici ne la changerait pas là-bas.
+    const s = new FeedbackStore(file)
+    s.append(report('a'))
+    s.markSent(new Set(['a']), '2026-09-06T10:00:00.000Z')
+
+    expect(s.patch('a', { comment: 'trop tard' })).toBe(false)
+    expect(s.readAll()[0].comment).toBeUndefined()
+  })
+
   it('clear vide tout', () => {
     const s = new FeedbackStore(file)
     s.append(report('a'))

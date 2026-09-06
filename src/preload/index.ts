@@ -102,7 +102,7 @@ const api: AppApi = {
     annotate: (id: string, comment: string) =>
       ipcRenderer.invoke(IpcChannels.feedbackAnnotate, id, comment),
     discard: (id: string) => ipcRenderer.invoke(IpcChannels.feedbackDiscard, id),
-    push: () => ipcRenderer.invoke(IpcChannels.feedbackPush),
+    push: (ids?: readonly string[]) => ipcRenderer.invoke(IpcChannels.feedbackPush, ids),
     setEnabled: (enabled: boolean) =>
       ipcRenderer.invoke(IpcChannels.feedbackSetEnabled, enabled),
     onState: (cb: (state: FeedbackState) => void) =>

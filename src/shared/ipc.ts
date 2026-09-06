@@ -161,13 +161,16 @@ export interface FeedbackBridge {
   /** Met en file un signalement. `false` si hors partie ou doublon récent. */
   report: (draft: FeedbackDraft) => Promise<boolean>
   setEnabled: (enabled: boolean) => Promise<FeedbackState>
-  /** Rapports en attente, du plus récent au plus ancien. */
+  /** Rapports connus, du plus récent au plus ancien (envoyés compris). */
   list: () => Promise<FeedbackReport[]>
-  /** Ajoute des précisions à un rapport en attente. */
+  /** Ajoute des précisions. `false` si le rapport est déjà envoyé. */
   annotate: (id: string, comment: string) => Promise<boolean>
   discard: (id: string) => Promise<boolean>
-  /** Envoi manuel vers la base — le seul moment où quelque chose sort. */
-  push: () => Promise<FeedbackPushResult>
+  /**
+   * Envoi manuel vers la base — le seul moment où quelque chose sort. `ids`
+   * restreint à une sélection ; sans lui, tout ce qui est en attente part.
+   */
+  push: (ids?: readonly string[]) => Promise<FeedbackPushResult>
   onState: (cb: (state: FeedbackState) => void) => () => void
 }
 

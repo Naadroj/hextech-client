@@ -52,22 +52,40 @@ export class FeedbackStore {
     return this.readAll().length
   }
 
-  /** Retire les rapports envoyés (par id). Réécriture atomique. */
+  /** Rapports pas encore envoyés — les seuls qu'un envoi doit reprendre. */
+  pending(): FeedbackReport[] {
+    return this.readAll().filter((r) => !r.sentAt)
+  }
+
+  countPending(): number {
+    return this.pending().length
+  }
+
+  /** Retire des rapports de la file locale (par id). Réécriture atomique. */
   remove(ids: Set<string>): void {
     const keep = this.readAll().filter((r) => !ids.has(r.id))
     this.write(keep)
   }
 
   /**
-   * Applique une modification à un rapport en attente (ajout de précisions
-   * depuis l'app). `false` si l'id n'est pas / plus en file — il a pu être
-   * envoyé entre-temps.
+   * Marque des rapports comme envoyés. Ils restent en file — consultables mais
+   * verrouillés — au lieu d'être supprimés : c'est la trace de ce qui est
+   * effectivement parti.
+   */
+  markSent(ids: Set<string>, at: string): void {
+    this.write(this.readAll().map((r) => (ids.has(r.id) ? { ...r, sentAt: at } : r)))
+  }
+
+  /**
+   * Applique une modification à un rapport. `false` si l'id est inconnu **ou
+   * déjà envoyé** : une ligne partie en base ne se modifie plus d'ici, et
+   * laisser croire le contraire serait pire que refuser.
    */
   patch(id: string, changes: Partial<FeedbackReport>): boolean {
     const all = this.readAll()
     const i = all.findIndex((r) => r.id === id)
-    if (i < 0) return false
-    all[i] = { ...all[i], ...changes, id: all[i].id }
+    if (i < 0 || all[i].sentAt) return false
+    all[i] = { ...all[i], ...changes, id: all[i].id, sentAt: all[i].sentAt }
     this.write(all)
     return true
   }
@@ -93,6 +111,18 @@ export class FeedbackStore {
 
   private trim(): void {
     const all = this.readAll()
-    if (all.length > MAX_PENDING) this.write(all.slice(-MAX_PENDING))
+    if (all.length <= MAX_PENDING) return
+    // On sacrifie d'abord les rapports déjà envoyés : leur ligne est en base, on
+    // ne perd qu'un historique de confort. Évincer un rapport encore en attente
+    // le perdrait pour de bon.
+    const excess = all.length - MAX_PENDING
+    const dropped = new Set(
+      all
+        .filter((r) => r.sentAt)
+        .slice(0, excess)
+        .map((r) => r.id),
+    )
+    const kept = all.filter((r) => !dropped.has(r.id))
+    this.write(kept.length > MAX_PENDING ? kept.slice(-MAX_PENDING) : kept)
   }
 }

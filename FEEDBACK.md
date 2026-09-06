@@ -34,8 +34,18 @@ sait ni quoi rejouer ni quoi corriger. Le clic écrit dans une file locale
 
 **Après la partie**, l'onglet **Signalements** de l'app relit la file, laisse
 ajouter des précisions à froid (« j'aurais pris Trinité, il était à 3 items »)
-et **c'est le seul endroit d'où quelque chose part** : un bouton « Envoyer »,
-jamais de vidage automatique. Ce qui n'est pas parti reste en file.
+et **c'est le seul endroit d'où quelque chose part** : jamais de vidage
+automatique, et ce qui n'est pas parti reste en attente.
+
+On choisit ce qui part : « Envoyer celui-ci » sur une carte, une sélection
+cochée, ou tout. Envoyer un rapport enregistre d'abord ses précisions non
+sauvegardées — sinon elles partiraient dans le vide.
+
+**Un rapport envoyé reste listé mais devient verrouillé** : plus de modification,
+plus de renvoi. Sa ligne est en base, la retoucher ici ne la changerait pas
+là-bas. `sentAt` porte cette marque ; c'est un champ **local**, absent de la
+table, que `toRow()` n'envoie pas. Il reste retirable de la liste locale, ce qui
+ne touche pas la ligne en base.
 
 Activé par défaut ; interrupteur dans **Réglages → Signalements**.
 

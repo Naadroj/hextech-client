@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FeedbackReport } from '@shared/feedback-types'
 import { FEEDBACK_COMMENT_MAX, FEEDBACK_REASON_LABELS } from '@shared/feedback-types'
 import { Button, Frame, Tag } from '../components/hextech'
@@ -13,6 +13,10 @@ import { useStaticData } from '../lib/useStaticData'
  * Le clic en jeu ne capture qu'un motif — c'est tout ce qu'on peut demander en
  * pleine partie. Le vrai contenu s'écrit ici, à froid : ce qu'on aurait acheté
  * et pourquoi. Et **rien ne part sans un clic sur « Envoyer »**.
+ *
+ * On envoie ce qu'on veut, quand on veut : un rapport isolé, une sélection, ou
+ * tout. Une fois parti, un rapport reste listé mais devient **verrouillé** — la
+ * ligne est en base, le modifier ici ne la changerait pas là-bas.
  */
 
 function when(iso: string): string {
@@ -25,14 +29,23 @@ function when(iso: string): string {
 function ReportCard({
   report,
   version,
+  selected,
+  onToggle,
   onAnnotate,
   onDiscard,
+  onSend,
+  busy,
 }: {
   report: FeedbackReport
   version: string | null
+  selected: boolean
+  onToggle: (id: string) => void
   onAnnotate: (id: string, comment: string) => Promise<void>
   onDiscard: (id: string) => Promise<void>
+  onSend: (id: string) => Promise<void>
+  busy: boolean
 }) {
+  const sent = !!report.sentAt
   const [draft, setDraft] = useState(report.comment ?? '')
   const [saved, setSaved] = useState(false)
   // Le rapport peut être rechargé depuis le disque (envoi, autre onglet) :
@@ -42,12 +55,25 @@ function ReportCard({
   const dirty = draft.trim() !== (report.comment ?? '')
 
   return (
-    <div className="space-y-2 border border-gold-800/50 p-3">
+    <div
+      className={`space-y-2 border p-3 ${
+        sent ? 'border-gold-800/25 bg-hextech-black/20' : 'border-gold-800/50'
+      }`}
+    >
       <div className="flex flex-wrap items-center gap-2">
+        {!sent && (
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => onToggle(report.id)}
+            aria-label={`Sélectionner le signalement ${report.champion}`}
+            className="size-4 accent-gold-700"
+          />
+        )}
         {report.itemId !== null && (
           <ItemIcon itemId={report.itemId} version={version} size={28} title={String(report.itemId)} />
         )}
-        <span className="text-gold-100">{report.champion}</span>
+        <span className={sent ? 'text-parchment' : 'text-gold-100'}>{report.champion}</span>
         <Tag>{report.role}</Tag>
         <Tag tone="cyan">{FEEDBACK_REASON_LABELS[report.reasonCode]}</Tag>
         <span className="text-xs text-parchment">
@@ -61,34 +87,63 @@ function ReportCard({
         <textarea
           value={draft}
           maxLength={FEEDBACK_COMMENT_MAX}
+          readOnly={sent}
+          disabled={sent}
           onChange={(e) => {
             setDraft(e.target.value)
             setSaved(false)
           }}
           rows={2}
-          placeholder="Ce que tu aurais acheté à la place, et pourquoi…"
-          className="w-full resize-y border border-gold-800/60 bg-hextech-black/60 p-2 text-sm text-gold-100 placeholder:text-parchment/60 focus:border-gold-700 focus:outline-none"
+          placeholder={
+            sent ? 'Aucune précision' : "Ce que tu aurais acheté à la place, et pourquoi…"
+          }
+          className={`w-full resize-y border p-2 text-sm placeholder:text-parchment/60 focus:outline-none ${
+            sent
+              ? 'cursor-not-allowed border-gold-800/30 bg-hextech-black/30 text-parchment'
+              : 'border-gold-800/60 bg-hextech-black/60 text-gold-100 focus:border-gold-700'
+          }`}
         />
       </label>
 
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          disabled={!dirty}
-          onClick={async () => {
-            await onAnnotate(report.id, draft)
-            setSaved(true)
-          }}
-        >
-          Enregistrer les précisions
-        </Button>
-        {saved && !dirty && <span className="text-xs text-ok">Enregistré</span>}
+      <div className="flex flex-wrap items-center gap-2">
+        {sent ? (
+          <span className="text-xs text-ok">Envoyé le {when(report.sentAt as string)} · verrouillé</span>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!dirty}
+              onClick={async () => {
+                await onAnnotate(report.id, draft)
+                setSaved(true)
+              }}
+            >
+              Enregistrer les précisions
+            </Button>
+            {saved && !dirty && <span className="text-xs text-ok">Enregistré</span>}
+            <Button
+              variant="gold"
+              size="sm"
+              disabled={busy}
+              // Les précisions non enregistrées ne partiraient pas : on les
+              // enregistre d'abord plutôt que de les perdre silencieusement.
+              onClick={async () => {
+                if (dirty) await onAnnotate(report.id, draft)
+                await onSend(report.id)
+              }}
+            >
+              Envoyer celui-ci
+            </Button>
+          </>
+        )}
         <button
           type="button"
           onClick={() => void onDiscard(report.id)}
           className="ml-auto text-xs text-parchment hover:text-warn"
+          title={sent ? 'Retire de cette liste — la ligne reste en base' : undefined}
         >
-          Jeter
+          {sent ? 'Retirer de la liste' : 'Jeter'}
         </button>
       </div>
     </div>
@@ -101,6 +156,27 @@ export function Reports() {
   const { reports, loading, pushing, result, annotate, discard, push } = useFeedbackQueue(
     state.pending,
   )
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const waiting = useMemo(() => reports.filter((r) => !r.sentAt), [reports])
+  const done = useMemo(() => reports.filter((r) => r.sentAt), [reports])
+
+  // Une sélection ne doit pas survivre aux rapports qu'elle désigne : après un
+  // envoi ou un rejet, les ids disparus sont oubliés.
+  useEffect(() => {
+    setSelected((prev) => {
+      const alive = new Set(waiting.map((r) => r.id))
+      const next = new Set([...prev].filter((id) => alive.has(id)))
+      return next.size === prev.size ? prev : next
+    })
+  }, [waiting])
+
+  const toggle = (id: string): void =>
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
 
   const blocked = !state.enabled
     ? 'Les signalements sont désactivés dans les Réglages.'
@@ -108,13 +184,16 @@ export function Reports() {
       ? "Ce build n'embarque pas d'identifiants de base : l'envoi est inerte, les rapports restent en file."
       : null
 
+  const canSend = !pushing && !blocked
+  const allSelected = waiting.length > 0 && selected.size === waiting.length
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Frame title="Signalements en attente">
+      <Frame title="Signalements">
         <p className="text-parchment">
           Le bouton bug de l'overlay enregistre un motif, rien de plus — en pleine partie c'est tout
-          ce qu'on peut demander. Complète-les ici, puis envoie quand tu veux. Rien ne part tout
-          seul.
+          ce qu'on peut demander. Complète-les ici, puis envoie ceux que tu veux. Rien ne part tout
+          seul, et un rapport envoyé n'est plus modifiable.
         </p>
 
         {blocked && (
@@ -124,9 +203,28 @@ export function Reports() {
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <Button onClick={() => void push()} disabled={pushing || reports.length === 0 || !!blocked}>
-            {pushing ? 'Envoi…' : `Envoyer ${reports.length || ''} en base`.trim()}
+          <Button
+            onClick={() => void push([...selected])}
+            disabled={!canSend || selected.size === 0}
+          >
+            {pushing ? 'Envoi…' : `Envoyer la sélection (${selected.size})`}
           </Button>
+          <Button
+            variant="ghost"
+            onClick={() => void push()}
+            disabled={!canSend || waiting.length === 0}
+          >
+            Tout envoyer ({waiting.length})
+          </Button>
+          {waiting.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelected(allSelected ? new Set() : new Set(waiting.map((r) => r.id)))}
+              className="text-xs text-parchment underline-offset-2 hover:text-gold-100 hover:underline"
+            >
+              {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+            </button>
+          )}
           {state.lastSentAt && (
             <span className="text-xs text-parchment">Dernier envoi : {when(state.lastSentAt)}</span>
           )}
@@ -137,7 +235,7 @@ export function Reports() {
                 : result.error === 'disabled'
                   ? 'Signalements désactivés.'
                   : result.error === 'network'
-                    ? `${result.sent} envoyé(s), ${result.remaining} conservé(s).`
+                    ? `${result.sent} envoyé(s), ${result.remaining} en attente.`
                     : `${result.sent} signalement(s) envoyé(s).`}
             </span>
           )}
@@ -161,22 +259,54 @@ export function Reports() {
       ) : reports.length === 0 ? (
         <Frame>
           <p className="text-parchment">
-            Aucun signalement en attente. Clique sur l'icône bug de l'overlay quand un item proposé
-            te paraît incohérent.
+            Aucun signalement. Clique sur l'icône bug de l'overlay quand un item proposé te paraît
+            incohérent.
           </p>
         </Frame>
       ) : (
-        <div className="space-y-3">
-          {reports.map((r) => (
-            <ReportCard
-              key={r.id}
-              report={r}
-              version={version}
-              onAnnotate={annotate}
-              onDiscard={discard}
-            />
-          ))}
-        </div>
+        <>
+          {waiting.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="font-display text-[10px] uppercase tracking-hexwide text-gold-700">
+                En attente ({waiting.length})
+              </h2>
+              {waiting.map((r) => (
+                <ReportCard
+                  key={r.id}
+                  report={r}
+                  version={version}
+                  selected={selected.has(r.id)}
+                  onToggle={toggle}
+                  onAnnotate={annotate}
+                  onDiscard={discard}
+                  onSend={(id) => push([id])}
+                  busy={!canSend}
+                />
+              ))}
+            </div>
+          )}
+
+          {done.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="font-display text-[10px] uppercase tracking-hexwide text-gold-700">
+                Envoyés ({done.length})
+              </h2>
+              {done.map((r) => (
+                <ReportCard
+                  key={r.id}
+                  report={r}
+                  version={version}
+                  selected={false}
+                  onToggle={toggle}
+                  onAnnotate={annotate}
+                  onDiscard={discard}
+                  onSend={(id) => push([id])}
+                  busy
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   )

@@ -74,7 +74,16 @@ export function registerFeedbackIpc(deps: RegisterFeedbackIpcDeps): () => void {
   ipcMain.handle(IpcChannels.feedbackDiscard, (_e, ...args) =>
     typeof args[0] === 'string' ? feedback.discard(args[0]) : false,
   )
-  ipcMain.handle(IpcChannels.feedbackPush, () => feedback.push())
+  ipcMain.handle(IpcChannels.feedbackPush, (_e, ...args) => {
+    // Le renderer est contextIsolé mais on ne lui fait pas confiance sur la
+    // forme : tout ce qui n'est pas une liste d'ids devient « tout envoyer ».
+    const ids = args[0]
+    const selection =
+      Array.isArray(ids) && ids.every((v) => typeof v === 'string')
+        ? (ids as string[])
+        : undefined
+    return feedback.push(selection)
+  })
 
   return () => {
     feedback.off('state', relay)

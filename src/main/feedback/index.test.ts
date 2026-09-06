@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Feedback, type FeedbackDeps } from './index'
+import type { Poster } from './supabase'
 import { FeedbackStore } from './store'
 import type { ConfigStore } from '../config-store'
 import type { CoachAdvice } from '../../shared/coach-types'
@@ -205,5 +206,84 @@ describe('Feedback — précisions et rejet', () => {
   it('expose si ce build sait envoyer', () => {
     const { fb } = setup()
     expect(fb.state.configured).toBe(false)
+  })
+})
+
+describe('Feedback.push — envoi choisi et verrouillage', () => {
+  // `push` court-circuite sans identifiants : on recharge le module « configuré ».
+  async function configured() {
+    vi.resetModules()
+    vi.stubEnv('HEXTECH_SUPABASE_URL', 'https://x.supabase.co')
+    vi.stubEnv('HEXTECH_SUPABASE_ANON_KEY', 'sb_publishable_test')
+    const mod = await import('./index')
+    const store = new mod.FeedbackStore(join(dir, 'pending.jsonl'))
+    const post = vi.fn<Poster>(async () => ({ ok: true, status: 201, text: async () => '' }))
+    const fb = new mod.Feedback({
+      config: makeConfig(),
+      store,
+      appVersion: '0.1.10',
+      getLive: () => LIVE,
+      getAdvice: () => ACTIVE,
+      getPatch: () => '16.17',
+      now: () => 1_700_000_000_000,
+      post,
+    })
+    fb.report({ itemId: 3083, itemRank: 0, reasonCode: 'other' })
+    fb.report({ itemId: 6333, itemRank: 0, reasonCode: 'other' })
+    return { fb, store, post, ids: store.readAll().map((r) => r.id) }
+  }
+
+  afterEach(() => vi.unstubAllEnvs())
+
+  it('n’envoie que la sélection et laisse le reste en attente', async () => {
+    const { fb, store, post, ids } = await configured()
+
+    const out = await fb.push([ids[0]])
+    expect(out.sent).toBe(1)
+    expect(out.error).toBeNull()
+    expect(post).toHaveBeenCalledOnce()
+
+    const body = JSON.parse(String(post.mock.calls[0][1].body)) as { id: string }[]
+    expect(body.map((r) => r.id)).toEqual([ids[0]])
+    expect(store.countPending()).toBe(1)
+    expect(store.pending()[0].id).toBe(ids[1])
+  })
+
+  it('garde le rapport envoyé, verrouillé, au lieu de le supprimer', async () => {
+    const { fb, store, ids } = await configured()
+    await fb.push([ids[0]])
+
+    // Toujours listé…
+    expect(store.count()).toBe(2)
+    expect(fb.list().map((r) => r.id)).toContain(ids[0])
+    // …mais plus modifiable, et l'état ne le compte plus en attente.
+    expect(fb.annotate(ids[0], 'trop tard')).toBe(false)
+    expect(fb.state.pending).toBe(1)
+  })
+
+  it('ne renvoie jamais un rapport déjà envoyé', async () => {
+    const { fb, store, post, ids } = await configured()
+    await fb.push([ids[0]])
+    post.mockClear()
+
+    // Ni en le redemandant nommément…
+    expect((await fb.push([ids[0]])).sent).toBe(0)
+    expect(post).not.toHaveBeenCalled()
+    // …ni dans un envoi global, qui ne reprend que ce qui attend.
+    await fb.push()
+    const body = JSON.parse(String(post.mock.calls[0][1].body)) as { id: string }[]
+    expect(body.map((r) => r.id)).toEqual([ids[1]])
+    expect(store.countPending()).toBe(0)
+  })
+
+  it('des ids inconnus ne déclenchent aucun envoi', async () => {
+    const { fb, post } = await configured()
+    expect(await fb.push(['nawak'])).toEqual({
+      sent: 0,
+      remaining: 2,
+      error: null,
+      detail: null,
+    })
+    expect(post).not.toHaveBeenCalled()
   })
 })

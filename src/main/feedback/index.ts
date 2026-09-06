@@ -60,7 +60,7 @@ export class Feedback extends EventEmitter {
   get state(): FeedbackState {
     return {
       enabled: this.deps.config.get('feedbackEnabled'),
-      pending: this.deps.store.count(),
+      pending: this.deps.store.countPending(),
       lastSentAt: this.lastSentAt,
       configured: isConfigured(),
     }
@@ -70,12 +70,18 @@ export class Feedback extends EventEmitter {
     this.removeAllListeners()
   }
 
-  /** Rapports en attente, du plus récent au plus ancien. */
+  /**
+   * Rapports connus, du plus récent au plus ancien — **envoyés compris**. Ils
+   * restent listés une fois partis, pour qu'on puisse relire ce qu'on a envoyé.
+   */
   list(): FeedbackReport[] {
     return this.deps.store.readAll().reverse()
   }
 
-  /** Ajoute ou remplace les précisions d'un rapport en attente. */
+  /**
+   * Ajoute ou remplace les précisions d'un rapport. `false` s'il est déjà
+   * envoyé : le store refuse d'y toucher.
+   */
   annotate(id: string, comment: string): boolean {
     const trimmed = comment.trim().slice(0, FEEDBACK_COMMENT_MAX)
     const ok = this.deps.store.patch(id, { comment: trimmed || null })
@@ -168,34 +174,46 @@ export class Feedback extends EventEmitter {
   }
 
   /**
-   * Envoie la file vers Supabase. **Déclenché à la main** depuis l'app. Ce qui
-   * n'est pas parti reste en file : on ne perd jamais un rapport.
+   * Envoie vers Supabase. **Déclenché à la main** depuis l'app. Ce qui n'est pas
+   * parti reste en attente : on ne perd jamais un rapport.
+   *
+   * `ids` restreint l'envoi à une sélection — un rapport isolé, ou plusieurs
+   * cochés dans la liste. Sans `ids`, tout ce qui est en attente part. Les
+   * rapports déjà envoyés ne sont jamais renvoyés.
    */
-  async push(): Promise<FeedbackPushResult> {
-    const pending = this.deps.store.readAll()
+  async push(ids?: readonly string[]): Promise<FeedbackPushResult> {
+    const waiting = this.deps.store.pending()
+    const wanted = ids ? new Set(ids) : null
+    const batch = wanted ? waiting.filter((r) => wanted.has(r.id)) : waiting
     const idle = (
       error: FeedbackPushResult['error'],
       detail: string | null = null,
-    ): FeedbackPushResult => ({ sent: 0, remaining: pending.length, error, detail })
-    if (pending.length === 0) return { sent: 0, remaining: 0, error: null, detail: null }
+    ): FeedbackPushResult => ({ sent: 0, remaining: waiting.length, error, detail })
+    if (batch.length === 0) {
+      return { sent: 0, remaining: waiting.length, error: null, detail: null }
+    }
     if (this.pushing) return idle('network')
     if (!this.deps.config.get('feedbackEnabled')) return idle('disabled')
     if (!isConfigured()) return idle('not-configured')
 
     this.pushing = true
     try {
-      const { sent, error } = await insertReports(pending, this.deps.post)
+      const { sent, error } = await insertReports(batch, this.deps.post)
+      const at = new Date((this.deps.now ?? Date.now)()).toISOString()
       if (sent.length > 0) {
-        this.deps.store.remove(new Set(sent))
-        this.lastSentAt = new Date((this.deps.now ?? Date.now)()).toISOString()
+        // Marqués envoyés, pas supprimés : ils restent lisibles et verrouillés.
+        this.deps.store.markSent(new Set(sent), at)
+        this.lastSentAt = at
         logger.info(`feedback: ${sent.length} signalement(s) envoyé(s)`)
       }
-      const remaining = this.deps.store.count()
+      const remaining = this.deps.store.countPending()
       this.emit('state', this.state)
       return {
         sent: sent.length,
         remaining,
-        error: remaining > 0 ? 'network' : null,
+        // Seul ce qu'on a tenté d'envoyer compte : des rapports laissés
+        // volontairement de côté ne sont pas un échec.
+        error: sent.length < batch.length ? 'network' : null,
         detail: error,
       }
     } finally {
