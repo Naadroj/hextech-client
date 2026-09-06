@@ -4,10 +4,11 @@ import type { FeedbackReport } from '../../shared/feedback-types'
 /**
  * Envoi des signalements vers une table Supabase, en `INSERT` seul.
  *
- * La clé `anon` est **publique par conception** : elle est conçue pour être
- * embarquée dans un client. La sécurité repose sur la RLS côté Supabase, qui ne
- * doit autoriser que l'insertion sur cette table (aucune lecture). Voir
- * `FEEDBACK.md` pour la policy exacte.
+ * La clé est **publique par conception** — `sb_publishable_…` aujourd'hui, ou
+ * l'ancienne `anon` : elle est faite pour être embarquée dans un client. La
+ * sécurité repose sur la RLS côté Supabase, qui ne doit autoriser que
+ * l'insertion sur cette table (aucune lecture). Voir `FEEDBACK.md` pour la
+ * policy exacte.
  *
  * Surchargeable au build : `HEXTECH_SUPABASE_URL` / `HEXTECH_SUPABASE_ANON_KEY`.
  */
@@ -58,6 +59,24 @@ export interface InsertOutcome {
   error: string | null
 }
 
+/**
+ * En-têtes d'authentification, selon le format de la clé.
+ *
+ * Une clé au nouveau format (`sb_publishable_…`) **n'est pas un JWT**. La doc
+ * Supabase impose de l'envoyer sur `apikey` et *surtout pas* sur
+ * `Authorization: Bearer`, où la couche d'auth tente de la vérifier comme un
+ * jeton, échoue, et n'authentifie donc pas l'appelant — la requête n'est alors
+ * plus rattachée au rôle `anon` et aucune policy RLS écrite pour ce rôle ne
+ * s'applique. Symptôme : la lecture passe (liste vide) mais l'`INSERT` est
+ * rejeté par la RLS, alors que la policy est correcte.
+ *
+ * Les clés héritées (`eyJ…`) sont, elles, de vrais JWT : PostgREST y lit le
+ * rôle, et elles gardent les deux en-têtes.
+ */
+export function authHeaders(key: string): Record<string, string> {
+  return key.startsWith('eyJ') ? { apikey: key, Authorization: `Bearer ${key}` } : { apikey: key }
+}
+
 /** Extrait le message utile d'une réponse PostgREST (JSON `{message, hint}`). */
 function explain(status: number, body: string): string {
   let detail = body.trim().slice(0, 300)
@@ -88,8 +107,7 @@ export async function insertReports(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        ...authHeaders(SUPABASE_ANON_KEY),
         Prefer: 'return=minimal,resolution=ignore-duplicates',
       },
       body: JSON.stringify(reports.map(toRow)),

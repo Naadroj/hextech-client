@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { insertReports, isConfigured, type Poster } from './supabase'
+import { authHeaders, insertReports, isConfigured, type Poster } from './supabase'
 import type { FeedbackReport } from '../../shared/feedback-types'
 
 const report = (over: Partial<FeedbackReport> = {}): FeedbackReport =>
@@ -28,6 +28,23 @@ const ok: Poster = async () => ({ ok: true, status: 201, text: async () => '' })
 const fail =
   (status: number, body: string): Poster =>
   async () => ({ ok: false, status, text: async () => body })
+
+describe('authHeaders', () => {
+  it("n'envoie pas une clé publishable en Authorization", () => {
+    // Elle n'est pas un JWT : sur `Authorization: Bearer`, la couche d'auth
+    // Supabase tente de la vérifier comme un jeton, échoue, et la requête
+    // n'est plus rattachée au rôle `anon` — la RLS rejette alors l'INSERT.
+    expect(authHeaders('sb_publishable_uoSyIq')).toEqual({ apikey: 'sb_publishable_uoSyIq' })
+  })
+
+  it('garde les deux en-têtes pour une clé héritée', () => {
+    // Un vrai JWT : c'est là que PostgREST lit le rôle.
+    expect(authHeaders('eyJhbGciOi.x.y')).toEqual({
+      apikey: 'eyJhbGciOi.x.y',
+      Authorization: 'Bearer eyJhbGciOi.x.y',
+    })
+  })
+})
 
 describe('insertReports', () => {
   it('ne tente rien sans identifiants et le dit', async () => {

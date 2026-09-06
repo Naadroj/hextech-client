@@ -67,7 +67,7 @@ Lire le message d'échec plutôt que deviner : PostgREST dit précisément quell
 
 | Réponse | Ce que ça veut dire |
 |---|---|
-| `401`/`403` + `new row violates row-level security policy` | la ligne était **valide** — table et colonnes bonnes. Il manque la policy d'insertion ci-dessus. Le `401` plutôt qu'un `403` confirme au passage que la requête tourne bien en rôle `anon`. |
+| `401`/`403` + `new row violates row-level security policy` | la ligne était **valide** — table et colonnes bonnes. Soit la policy d'insertion manque, soit la clé part sur le mauvais en-tête (voir plus haut) : vérifier `pg_policies` **avant** de conclure à la policy. |
 | `400` + `PGRST204` / `column … does not exist` | le schéma de la table a divergé de `toRow()` |
 | `404` | mauvaise URL de projet, ou table absente |
 | `identifiants absents de ce build` | les deux `HEXTECH_SUPABASE_*` ne sont pas arrivées |
@@ -111,6 +111,24 @@ insertion seule, aucune lecture. Réserve honnête : quiconque extrait la clé d
 binaire peut insérer des lignes. À l'échelle d'un cercle d'amis c'est
 acceptable ; si ça devient un problème, mettre un Cloudflare Worker devant pour
 faire le rate-limit.
+
+### Format de clé : `apikey` seulement, jamais `Authorization`
+
+Une clé au nouveau format (`sb_publishable_…`) **n'est pas un JWT**. Supabase
+impose de l'envoyer sur l'en-tête `apikey` et *surtout pas* sur
+`Authorization: Bearer`, où la couche d'auth tente de la vérifier comme un jeton,
+échoue, et **n'authentifie pas l'appelant**. La requête n'est alors plus
+rattachée au rôle `anon`, et aucune policy RLS écrite pour ce rôle ne s'applique.
+
+Le symptôme est déroutant, parce qu'il ressemble trait pour trait à une policy
+manquante : la **lecture passe** (`200` avec une liste vide) mais l'`INSERT` est
+rejeté par la RLS — alors que `pg_policies` montre une policy `PERMISSIVE`,
+`INSERT`, `to anon`, `with check (true)` parfaitement correcte. C'est ce qui a
+fait chercher côté base pendant tout le débogage de la `v0.1.13`.
+
+`authHeaders()` dans [supabase.ts](src/main/feedback/supabase.ts) tranche selon
+le format : les clés héritées (`eyJ…`) sont de vrais JWT et gardent les deux
+en-têtes, les nouvelles n'ont que `apikey`.
 
 ### Où trouver les deux valeurs
 
