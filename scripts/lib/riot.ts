@@ -2,21 +2,9 @@
 // Clé via variable d'environnement RIOT_API_KEY (ou fichier .env local,
 // gitignored) — jamais committée.
 
-import { readFileSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { loadDotEnv } from './local'
 
-// Charge un .env à la racine du projet s'il existe : KEY=VALUE, une par ligne.
-// L'environnement réel a priorité sur le fichier.
-try {
-  const envPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../.env')
-  for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-    const m = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line)
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-  }
-} catch {
-  /* pas de .env : on se rabat sur l'environnement du shell */
-}
+loadDotEnv()
 
 const KEY = process.env.RIOT_API_KEY ?? ''
 /** Plateforme (LEAGUE/SUMMONER) : euw1, na1, kr, eun1… */

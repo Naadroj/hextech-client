@@ -83,6 +83,7 @@ npm run lint         # eslint
 npm run build        # bundle (inline les identifiants Supabase)
 npm run dist         # installeur NSIS
 npm run builds       # régénère resources/builds.json depuis bench/raw/
+npm run feedback:probe    # teste l'envoi d'un signalement (clé anon, ligne factice)
 npm run feedback:review   # relit les signalements en base (service_role)
 ```
 
@@ -184,34 +185,38 @@ hors partie. Les 30 dernières étapes sont jointes aux signalements, dans
 
 ## En cours / à faire
 
-### 1. L'envoi des signalements en base échoue — non résolu
+### 1. L'envoi des signalements en base — diagnostic clos, correctif à jouer
 
-C'est le sujet chaud. Symptôme : l'utilisateur clique « Envoyer », rien n'arrive
-dans Supabase.
+**Cause identifiée le 6 septembre 2026.** L'encart « Réponse de la base » de la
+`v0.1.13` a livré le message : `HTTP 401 : new row violates row-level security
+policy for table "feedback"`.
 
-Ce qui est vérifié : le rapport local est bien formé, la table existe, **les 17
-colonnes sont présentes** (`comment` incluse), les secrets CI sont configurés et
-le workflow les injecte.
+C'est l'erreur Postgres `42501`, levée **au moment de l'INSERT**. Elle tranche
+tout le reste : les identifiants sont bien dans le build, l'URL et la clé sont
+valides, et la table comme les 17 colonnes sont bonnes — la RLS n'est évaluée
+qu'*après* construction de la ligne, donc arriver jusqu'à cette erreur prouve
+que la ligne était valide. Le `401` plutôt qu'un `403` confirme en prime que la
+requête tourne bien en rôle `anon` : PostgREST répond `401` sur `42501` quand la
+requête est anonyme.
 
-**Hypothèse principale : la policy RLS d'insertion manque.** Un `GET` sur la
-table répond 200 avec une liste vide alors que la doc veut qu'aucune lecture ne
-passe — c'est la signature d'une RLS **activée sans aucune policy**, l'état par
-défaut d'une table créée depuis le tableau de bord Supabase. PostgREST répond
-alors 200 en lecture mais refuse tout `INSERT`.
-
-Réparation (idempotente, éditeur SQL Supabase) :
+Il ne reste donc que la policy d'insertion manquante. Réparation (idempotente,
+éditeur SQL Supabase — **côté tableau de bord, rien à changer dans le code**) :
 
 ```sql
-alter table feedback add column if not exists comment text;
 alter table feedback enable row level security;
 drop policy if exists "insert only" on feedback;
 create policy "insert only" on feedback for insert to anon with check (true);
 ```
 
-La `v0.1.13` affiche désormais le message brut de la base dans un encart
-« Réponse de la base » sous le bouton Envoyer — **demander ce message avant de
-creuser plus loin.** Deux bugs ont déjà été corrigés au passage : la colonne
-`comment` n'était pas envoyée, et l'échec était totalement muet.
+Puis vérifier sans lancer l'app ni brûler un vrai signalement :
+
+```bash
+npm run feedback:probe
+```
+
+Trois bugs ont été corrigés en route : la colonne `comment` n'était pas envoyée
+et l'échec était muet (`v0.1.13`), et il n'existait aucun moyen de tester
+l'envoi hors de l'app (la sonde).
 
 ### 2. Variantes d'axe : faux positifs sur les enchanteurs
 

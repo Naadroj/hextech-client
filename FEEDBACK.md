@@ -51,6 +51,27 @@ drop policy if exists "insert only" on feedback;
 create policy "insert only" on feedback for insert to anon with check (true);
 ```
 
+### Vérifier sans lancer l'app
+
+```bash
+npm run feedback:probe
+```
+
+Insère un rapport factice avec la clé anon — via le **vrai** `insertReports`,
+donc les noms de colonnes de `toRow()` sont vérifiés au passage — puis contrôle
+qu'aucune lecture ne passe avec cette clé, et supprime la ligne derrière si
+`SUPABASE_SERVICE_KEY` est dans le `.env`.
+
+Lire le message d'échec plutôt que deviner : PostgREST dit précisément quelle
+étape a refusé.
+
+| Réponse | Ce que ça veut dire |
+|---|---|
+| `401`/`403` + `new row violates row-level security policy` | la ligne était **valide** — table et colonnes bonnes. Il manque la policy d'insertion ci-dessus. Le `401` plutôt qu'un `403` confirme au passage que la requête tourne bien en rôle `anon`. |
+| `400` + `PGRST204` / `column … does not exist` | le schéma de la table a divergé de `toRow()` |
+| `404` | mauvaise URL de projet, ou table absente |
+| `identifiants absents de ce build` | les deux `HEXTECH_SUPABASE_*` ne sont pas arrivées |
+
 Création complète à partir de rien :
 
 ```sql

@@ -8,23 +8,14 @@
 // `.env` : SUPABASE_SERVICE_KEY (clé `service_role`). L'URL est reprise de
 // HEXTECH_SUPABASE_URL. La clé de service ne quitte jamais ta machine.
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { ROOT, SCENARIOS_DIR, loadStaticData, loadBuildBook } from './lib/local'
+import { SCENARIOS_DIR, loadDotEnv, loadStaticData, loadBuildBook } from './lib/local'
 import { assessGame } from '../src/shared/engine/context'
 import { recommend } from '../src/shared/engine/recommend'
 import type { FeedbackReport } from '../src/shared/feedback-types'
 
-// Charge le `.env` de la racine (même convention que scripts/lib/riot.ts).
-try {
-  const raw = readFileSync(resolve(ROOT, '.env'), 'utf8')
-  for (const line of raw.split(/\r?\n/)) {
-    const m = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line)
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
-  }
-} catch {
-  /* pas de .env : on se rabat sur l'environnement du shell */
-}
+loadDotEnv()
 
 const URL_ = process.env.SUPABASE_URL || process.env.HEXTECH_SUPABASE_URL || ''
 const KEY = process.env.SUPABASE_SERVICE_KEY ?? ''

@@ -9,6 +9,24 @@ export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 export const RAW_DIR = resolve(ROOT, 'bench/raw')
 export const SCENARIOS_DIR = resolve(ROOT, 'test/fixtures/pro-scenarios')
 
+/**
+ * Charge le `.env` de la racine s'il existe : `KEY=VALUE`, une par ligne.
+ *
+ * L'environnement réel garde la priorité sur le fichier — c'est ce qui permet à
+ * la CI de passer ses secrets sans qu'un `.env` traînant sur la machine du
+ * mainteneur ne les écrase.
+ */
+export function loadDotEnv(): void {
+  try {
+    for (const line of readFileSync(resolve(ROOT, '.env'), 'utf8').split(/\r?\n/)) {
+      const m = /^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.*?)\s*$/.exec(line)
+      if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
+    }
+  } catch {
+    /* pas de .env : on se rabat sur l'environnement du shell */
+  }
+}
+
 /** Catalogue statique depuis le snapshot embarqué. */
 export function loadStaticData(): { data: StaticData; patch: string } {
   const snap = JSON.parse(readFileSync(resolve(ROOT, 'resources/staticdata/snapshot.json'), 'utf8'))
