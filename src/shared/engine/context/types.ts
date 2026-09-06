@@ -36,6 +36,12 @@ export interface EnemyThreat {
   weight: number
   fed: number
   profile: DamageProfile
+  /**
+   * Répartition physique/magique **corrigée par les items portés**. Le
+   * `profile` reste l'étiquette d'identité du champion ; c'est celle-ci qui dit
+   * ce qu'il tape vraiment (une Katarina full AD n'est plus comptée magique).
+   */
+  damageMix: DamageMixShares
   /** Résistances effectives estimées (stats de base au niveau + items portés). */
   effectiveStats: StatBlock
   items: number[]

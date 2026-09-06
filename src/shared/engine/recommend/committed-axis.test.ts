@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { inferCommittedAxis, isOffCommittedAxis } from './committed-axis'
+import { inferCommittedAxis, isOffCommittedAxis, isOffCommittedAxisItem } from './committed-axis'
 import type { StaticData, NormalizedItem } from '../../staticdata-types'
 import type { GameAssessment } from '../context'
 
@@ -74,5 +74,31 @@ describe('isOffCommittedAxis', () => {
   it('tank / haste ne sont jamais hors-axe', () => {
     expect(isOffCommittedAxis('tank', 'physical')).toBe(false)
     expect(isOffCommittedAxis('haste', 'magic')).toBe(false)
+  })
+})
+
+describe('isOffCommittedAxisItem — l’or mort compte aussi', () => {
+  it('écarte un item neutre qui porte trop de stats de l’axe opposé', () => {
+    // Le Cimeterre mercuriel est classé `qss` — on l'achète pour le nettoyage
+    // de CC — mais ses 40 AD sont de l'or mort sur un champion AP. Proposé à
+    // une Annie le 6 septembre 2026.
+    const scimitar = item(3139, { attackDamage: 40, magicResist: 40, lifeSteal: 8 }, {
+      description: '<active>Quicksilver</active> Removes all crowd control.',
+    })
+    expect(isOffCommittedAxisItem(scimitar, 'magic')).toBe(true)
+    // Sur un champion AD, c'est exactement l'item qu'il faut : rien de mort.
+    expect(isOffCommittedAxisItem(scimitar, 'physical')).toBe(false)
+  })
+
+  it('garde les items réellement neutres', () => {
+    // Aucun or de dégâts d'un côté ni de l'autre : proposable quel que soit l'axe.
+    const visage = item(3065, { health: 450, magicResist: 55, abilityHaste: 10 })
+    expect(isOffCommittedAxisItem(visage, 'magic')).toBe(false)
+    expect(isOffCommittedAxisItem(visage, 'physical')).toBe(false)
+  })
+
+  it('sans axe engagé, rien n’est écarté', () => {
+    const ie = item(3031, { attackDamage: 70, critChance: 20 })
+    expect(isOffCommittedAxisItem(ie, undefined)).toBe(false)
   })
 })

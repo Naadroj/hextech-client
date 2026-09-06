@@ -19,6 +19,28 @@ const isDefensive = (item: NormalizedItem): boolean =>
 
 const ORDINAL = ['', '1er', '2e', '3e', '4e', '5e', '6e']
 
+/**
+ * En dessous, on ne parle plus de « build hi-elo » mais du nombre de parties.
+ *
+ * Le prior s'applique dès `BUILD_MIN_GAMES` (5) — c'est un réglage mesuré au
+ * benchmark, on n'y touche pas ici. Mais annoncer « 80 % des parties MID » sur
+ * un échantillon de 5 est un abus de langage qui se paie en confiance.
+ */
+const THIN_SAMPLE_GAMES = 30
+
+/**
+ * Rôles pour qui « ta courbe de dégâts » ne veut rien dire : leur or utile part
+ * en résistances, en soins et en contrôle, pas en scaling offensif. Signalé sur
+ * un Thresh à qui on justifiait un Morellonomicon par « 100 % de l'or reste sur
+ * ta courbe de dégâts ».
+ */
+const NON_CARRY_ROLES = new Set(['TANK', 'WARDEN', 'CATCHER', 'ENCHANTER', 'VANGUARD'])
+
+const isDamageCarry = (a: GameAssessment): boolean => {
+  const roles = a.self.profile.roles.map((x) => x.toUpperCase())
+  return roles.length === 0 || roles.some((x) => !NON_CARRY_ROLES.has(x))
+}
+
 export function reasonsFor(
   scored: ItemRecommendation,
   item: NormalizedItem,
@@ -44,7 +66,13 @@ export function reasonsFor(
     if (p.entry && p.kind) {
       const rate = `${Math.round(p.entry.pickRate * 100)} % des parties ${p.role}`
       const span = p.patchSpan ? ` · patch ${p.patchSpan}` : ''
-      if (p.kind === 'boots') {
+      // Échantillon maigre : on donne le nombre de parties au lieu de laisser
+      // croire à un consensus hi-elo. « 80 % des parties MID » sur 5 parties
+      // n'est pas une statistique, et le lire comme telle produit exactement le
+      // signalement reçu le 6 septembre 2026 sur un Briar MID.
+      if (p.games < THIN_SAMPLE_GAMES) {
+        r.push(`Vu sur ce champion, mais sur ${p.games} parties seulement — à prendre avec des pincettes.`)
+      } else if (p.kind === 'boots') {
         r.push(`Bottes standard sur ce champion (${rate}${span}).`)
       } else if (p.kind === 'core') {
         const slot = ORDINAL[Math.round(p.entry.avgSlot)] ?? `${Math.round(p.entry.avgSlot)}e`
@@ -55,11 +83,17 @@ export function reasonsFor(
     }
   }
 
-  // Axe de menace dominant.
-  if (a.threat.magic >= 0.55) {
-    r.push(`Équipe ennemie ${pct(a.threat.magic)} magique → résistance magique / anti-AP.`)
-  } else if (a.threat.physical >= 0.55) {
-    r.push(`Équipe ennemie ${pct(a.threat.physical)} physique → armure / réduction.`)
+  // Axe de menace dominant — **seulement si l'item y répond vraiment**.
+  //
+  // Cette phrase est affichée juste sous l'item : le lecteur la lit comme sa
+  // raison d'être. La pousser sur le seul état de la partie faisait dire au
+  // coach « → résistance magique » sous un Glaive d'ombre (0 RM) et
+  // « → armure » sous une Fleur de crypte (0 armure). Une justification qui
+  // ment sur un fait vérifiable coûte plus cher que pas de justification.
+  if (a.threat.magic >= 0.55 && (item.stats.magicResist ?? 0) > 0) {
+    r.push(`Équipe ennemie ${pct(a.threat.magic)} magique → résistance magique.`)
+  } else if (a.threat.physical >= 0.55 && (item.stats.armor ?? 0) > 0) {
+    r.push(`Équipe ennemie ${pct(a.threat.physical)} physique → armure.`)
   }
 
   // Menace principale.
@@ -71,7 +105,7 @@ export function reasonsFor(
   // Compromis de tempo : pourquoi (ne pas) prendre un détour défensif.
   if (isDefensive(item)) {
     const frac = onAxisGoldFraction(item, damageAxisKeys(a))
-    if (frac >= 0.35) {
+    if (frac >= 0.35 && isDamageCarry(a)) {
       r.push(`${pct(frac)} de l'or reste sur ta courbe de dégâts — détour léger.`)
     } else if (b.tempo <= -0.18) {
       r.push(

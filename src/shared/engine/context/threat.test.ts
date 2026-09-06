@@ -70,3 +70,38 @@ describe('assessAllies', () => {
     expect(noTank.hasFrontline).toBe(false)
   })
 })
+
+describe('menace corrigée par les items portés', () => {
+  // Le profil DDragon est une étiquette d'identité, pas une observation : une
+  // Katarina full AD y reste magique. Signalé le 6 septembre 2026 par un Maokai
+  // à qui on conseillait de la RM contre une équipe qui tapait physique.
+  const mixOfEnemies = (enemies: LivePlayer[]) =>
+    assessThreat({ enemies, fed: assessFed(enemies, sd), roles: rolesOf(enemies), staticData: sd })
+
+  it('un champion au profil magique parti full AD bascule côté physique', () => {
+    const nu = [livePlayer({ champion: 'Syndra', team: 'CHAOS' })]
+    const ad = [
+      livePlayer({ champion: 'Syndra', team: 'CHAOS', items: [3031, 3072, 3036] }),
+    ]
+    const t0 = mixOfEnemies(nu)
+    const t1 = mixOfEnemies(ad)
+
+    expect(t0.magic).toBeGreaterThan(0.7)
+    expect(t1.physical).toBeGreaterThan(t0.physical)
+    expect(t1.magic).toBeLessThan(t0.magic)
+  })
+
+  it('sans item, le profil du champion fait toujours foi', () => {
+    const t = mixOfEnemies([livePlayer({ champion: 'Syndra', team: 'CHAOS' })])
+    expect(t.magic).toBeCloseTo(prof('Syndra')!.magic, 5)
+  })
+
+  it('des items défensifs purs ne déplacent pas l’axe', () => {
+    // Coques en acier / Visage spirituel ne disent rien de ce qu'il tape.
+    const t0 = mixOfEnemies([livePlayer({ champion: 'Syndra', team: 'CHAOS' })])
+    const t1 = mixOfEnemies([
+      livePlayer({ champion: 'Syndra', team: 'CHAOS', items: [3068, 3065] }),
+    ])
+    expect(t1.magic).toBeCloseTo(t0.magic, 5)
+  })
+})

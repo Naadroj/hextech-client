@@ -60,6 +60,41 @@ function recommendedIds(advice: CoachAdvice): string {
   ].join(',')
 }
 
+/**
+ * Marge qu'un nouvel item doit prendre sur le précédent pour le remplacer.
+ *
+ * Deux candidats à quelques points d'écart s'échangeaient la place à chaque
+ * battement — la proposition changeait toutes les 5 secondes sans que rien ne
+ * bouge en jeu (signalé le 6 septembre 2026 sur une Katarina : Flamme-ombre ⇄
+ * Pistolame). Un conseil qui clignote n'est pas un conseil.
+ */
+const SWITCH_MARGIN = 0.05
+
+/**
+ * Garde la proposition précédente tant que la nouvelle ne la dépasse pas
+ * nettement. Sans effet si l'item précédent a disparu des candidats — acheté,
+ * devenu hors-axe, ou simplement distancé de plus que la marge.
+ */
+export function stabilizePrimary(
+  rec: Recommendation,
+  previousPrimaryId: number | null,
+): Recommendation {
+  const primary = rec.primary
+  if (!primary || previousPrimaryId === null || primary.itemId === previousPrimaryId) return rec
+
+  const previous = rec.alternatives.find((x) => x.itemId === previousPrimaryId)
+  if (!previous || primary.score >= previous.score * (1 + SWITCH_MARGIN)) return rec
+
+  return {
+    ...rec,
+    primary: previous,
+    alternatives: [primary, ...rec.alternatives.filter((x) => x.itemId !== previousPrimaryId)].slice(
+      0,
+      2,
+    ),
+  }
+}
+
 export class Coach extends EventEmitter {
   private last: CoachAdvice = IDLE_ADVICE
   /** Axe force par l'utilisateur, remis a zero a chaque nouvelle partie. */
@@ -114,9 +149,9 @@ export class Coach extends EventEmitter {
     }
 
     const book = this.deps.getBuildBook?.() ?? undefined
-    const rec = localizeNames(
-      recommend(assessment, sd, book, this.axisOverride),
-      sd,
+    const rec = stabilizePrimary(
+      localizeNames(recommend(assessment, sd, book, this.axisOverride), sd),
+      this.last.recommendation?.primary?.itemId ?? null,
     )
 
     // Catalogue périmé : champions inconnus (championId 0 = profil de repli).

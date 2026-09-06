@@ -5,8 +5,7 @@ import { generateCandidates } from './candidates'
 import { representativeTarget } from './target'
 import { contextWeights } from './weights'
 import { scoreItem } from './score'
-import { inferCommittedAxis, isOffCommittedAxis } from './committed-axis'
-import { itemIntent } from './categories'
+import { inferCommittedAxis, isOffCommittedAxisItem } from './committed-axis'
 import { reasonsFor, reasonsForBoots, reasonsForComponent } from './explain'
 import type { ItemRecommendation, Recommendation } from './types'
 
@@ -49,11 +48,18 @@ export function recommend(
   const weights = contextWeights(a)
   const { legendaries, boots, components, needsBoots } = generateCandidates(a, sd)
 
-  // Axe forcé : on retire les items de l'axe opposé du slot principal. Les items
-  // neutres (armure, RM, antisoin, QSS, stase…) n'appartiennent à aucun axe et
-  // restent proposables — c'est souvent eux la bonne réponse situationnelle.
-  const eligible = axisOverride
-    ? legendaries.filter((item) => !isOffCommittedAxis(itemIntent(item), axisOverride))
+  // On retire les items de l'axe opposé du slot principal. Les items neutres
+  // (armure, RM, antisoin, QSS, stase…) n'appartiennent à aucun axe et restent
+  // proposables — c'est souvent eux la bonne réponse situationnelle.
+  //
+  // Vaut aussi bien pour l'axe **forcé** que pour l'axe **déduit** : ce dernier
+  // n'est renseigné que si l'inventaire penche à ≥ 70 % d'un côté, donc quand il
+  // existe il est au moins aussi sûr qu'un clic. Ne filtrer qu'en mode forcé
+  // laissait le prior de build hi-elo passer devant la pénalité de score et
+  // proposer un Tueur de krakens en primaire à une Katarina full AP (signalé le
+  // 6 septembre 2026 : « pas quand je joue ap »).
+  const eligible = committedAxis
+    ? legendaries.filter((item) => !isOffCommittedAxisItem(item, committedAxis))
     : legendaries
 
   const scored = (eligible.length > 0 ? eligible : legendaries)

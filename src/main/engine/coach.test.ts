@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
-import { Coach } from './coach'
+import { Coach, stabilizePrimary } from './coach'
+import type { ItemRecommendation, Recommendation } from '../../shared/engine/recommend'
 import type { LiveSnapshot } from '../../shared/live-types'
 import { makeStaticData, makeLiveGame } from '../../shared/engine/context/fixtures'
 
@@ -144,5 +145,36 @@ describe('Coach', () => {
     const rec = (advices[0] as { recommendation: { primary: { name: string }; alternatives: { name: string }[] } }).recommendation
     expect(rec.primary.name.startsWith('FR:')).toBe(true)
     for (const alt of rec.alternatives) expect(alt.name.startsWith('FR:')).toBe(true)
+  })
+})
+
+describe('stabilizePrimary — hystérésis', () => {
+  const pick = (itemId: number, score: number) =>
+    ({ itemId, name: `i${itemId}`, score }) as unknown as ItemRecommendation
+  const recOf = (primary: ItemRecommendation, alternatives: ItemRecommendation[]) =>
+    ({ primary, alternatives }) as unknown as Recommendation
+
+  it('garde l’item précédent quand le nouveau ne prend qu’une courte avance', () => {
+    // Deux candidats à 2 % d'écart s'échangeaient la place à chaque battement :
+    // la proposition clignotait sans que rien ne bouge en jeu.
+    const out = stabilizePrimary(recOf(pick(3031, 1.02), [pick(3072, 1.0)]), 3072)
+    expect(out.primary?.itemId).toBe(3072)
+    expect(out.alternatives[0].itemId).toBe(3031)
+  })
+
+  it('cède la place dès que l’avance est nette', () => {
+    const out = stabilizePrimary(recOf(pick(3031, 1.4), [pick(3072, 1.0)]), 3072)
+    expect(out.primary?.itemId).toBe(3031)
+  })
+
+  it('n’insiste pas sur un item qui a quitté les candidats', () => {
+    // Acheté, ou devenu hors-axe : il n'est plus proposable, on n'y revient pas.
+    const out = stabilizePrimary(recOf(pick(3031, 1.01), [pick(3089, 1.0)]), 3072)
+    expect(out.primary?.itemId).toBe(3031)
+  })
+
+  it('sans proposition précédente, ne touche à rien', () => {
+    const out = stabilizePrimary(recOf(pick(3031, 1.01), [pick(3072, 1.0)]), null)
+    expect(out.primary?.itemId).toBe(3031)
   })
 })

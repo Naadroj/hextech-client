@@ -1,4 +1,4 @@
-import type { StaticData } from '../../staticdata-types'
+import type { NormalizedItem, StaticData } from '../../staticdata-types'
 import type { GameAssessment } from '../context'
 import { statGoldValue } from './gold-values'
 import { itemIntent } from './categories'
@@ -49,4 +49,39 @@ export function isOffCommittedAxis(
   if (!committed) return false
   if (committed === 'physical') return intent === 'ap-damage'
   return AD_INTENTS.has(intent)
+}
+
+/**
+ * Part de la valeur-or d'un item partant en stats de dégâts de l'axe opposé.
+ *
+ * Au-delà, l'item est écarté du slot principal même si son `itemIntent` le dit
+ * neutre. Le Cimeterre mercuriel est classé `qss` — à juste titre, on l'achète
+ * pour le nettoyage de CC — mais ses 55 AD sont de l'or mort sur un champion AP,
+ * et le proposer à une Annie a été signalé le 6 septembre 2026.
+ */
+const OFF_AXIS_DEAD_GOLD = 0.25
+
+/**
+ * `true` si l'item est de l'axe opposé — par son intention, **ou** parce qu'il
+ * y laisse trop d'or malgré une intention neutre.
+ */
+export function isOffCommittedAxisItem(
+  item: NormalizedItem,
+  committed: 'physical' | 'magic' | undefined,
+): boolean {
+  if (!committed) return false
+  if (isOffCommittedAxis(itemIntent(item), committed)) return true
+
+  const total = statGoldValue(item.stats)
+  if (total <= 0) return false
+  const s = item.stats
+  const offAxis =
+    committed === 'magic'
+      ? statGoldValue({
+          attackDamage: s.attackDamage,
+          lethality: s.lethality,
+          critChance: s.critChance,
+        })
+      : statGoldValue({ abilityPower: s.abilityPower })
+  return offAxis / total >= OFF_AXIS_DEAD_GOLD
 }

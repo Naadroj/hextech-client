@@ -225,7 +225,38 @@ Corrigés en route : la colonne `comment` n'était pas envoyée et l'échec éta
 muet (`v0.1.13`), et il n'existait aucun moyen de tester l'envoi hors de l'app
 (`npm run feedback:probe`).
 
-### 2. Variantes d'axe : faux positifs sur les enchanteurs
+### 2. Corrections issues des premiers signalements (6 septembre 2026)
+
+Sept signalements reçus, **quatre causes** derrière. Corrigées dans `master`,
+couvertes par des tests unitaires, **mais pas encore mesurées au benchmark** —
+voir la réserve plus bas.
+
+1. **La justification n'était pas vérifiée contre l'item.** La phrase d'axe de
+   menace était poussée sur le seul état de la partie : le coach annonçait
+   « → résistance magique » sous un Glaive d'ombre (0 RM) et « → armure » sous
+   une Fleur de crypte (0 armure). Elle est maintenant conditionnée aux stats
+   réelles de l'item ([explain.ts](src/shared/engine/recommend/explain.ts)).
+2. **La menace était typée par l'identité du champion, jamais par ses achats.**
+   `mixOf` n'utilisait que le profil DDragon — une Katarina full AD restait
+   comptée magique, et on conseillait de la RM à un Maokai contre une équipe qui
+   tapait physique. `assessThreat` calculait déjà `effectiveStats(base, items)`
+   sans jamais s'en servir ; c'est branché via `observedMix`
+   ([threat.ts](src/shared/engine/context/threat.ts)).
+3. **L'axe ne filtrait rien en mode Auto.** Le filtre ne s'appliquait que sur un
+   axe *forcé* ; en Auto le prior de build passait devant la pénalité de score et
+   proposait un Tueur de krakens à une Katarina full AP. Le filtre vaut désormais
+   pour l'axe déduit, et écarte aussi les items d'intention neutre qui laissent
+   trop d'or mort sur l'axe opposé (Cimeterre mercuriel sur un AP).
+4. **La proposition oscillait.** Deux candidats à quelques points d'écart
+   s'échangeaient la place à chaque battement. Hystérésis dans le coach
+   (`SWITCH_MARGIN`) — c'est de l'état inter-tick, donc hors du moteur pur.
+
+**Réserve honnête : les points 2 et 3 changent le scoring et la sélection de
+candidats, et n'ont pas été passés au benchmark** — `bench/raw/` n'est mis en
+cache qu'en CI, il est absent d'un clone neuf. À faire tourner avant de tagger
+une version qui les embarque.
+
+### 2 bis. Variantes d'axe : faux positifs sur les enchanteurs
 
 Les 48 variantes produites sont majoritairement justes — Shaco JUNGLE
 AD(Voltaic/Umbral/Youmuu) vs AP(Blackfire/Mandate/Liandry) est exactement ce

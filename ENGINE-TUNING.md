@@ -98,6 +98,19 @@ modèle de stats ne peut pas deviner (Nasus → accélération avant tank).
 | `BUILD_W_BOOTS` | **0.8** | poids des bottes du squelette (× `pickRate`) |
 | `BUILD_SLOT_TOLERANCE` | **2.5** | largeur (en slots de légendaire) de la fenêtre d'ordre autour de `avgSlot` ; hors fenêtre le facteur décroît |
 | `BUILD_MIN_ORDER_FACTOR` | **0.3** | plancher du facteur d'ordre — un item core reste favorisé même acheté « hors moment » |
+| `THIN_SAMPLE_GAMES` | **30** | sous ce nombre de parties, la justification donne le compte brut au lieu de parler de « build hi-elo ». **Affichage seul**, aucun effet sur le score |
+
+## Menace et axe (corrections du 6 septembre 2026)
+
+| constante | valeur | rôle |
+| --- | --- | --- |
+| `FULL_TRUST_GOLD` | **6000** | or offensif d'un ennemi à partir duquel ses **items** déterminent seuls sa répartition physique/magique ; en dessous, mélange linéaire avec le profil DDragon du champion. ↓ → on croit les items plus tôt (une Katarina AD est reconnue plus vite, au risque d'un faux positif sur un seul composant) |
+| `OFF_AXIS_DEAD_GOLD` | **0,25** | part de la valeur-or d'un item partant en stats de dégâts de l'axe opposé au-delà de laquelle il est écarté du slot principal, **même si son intention est neutre** (cas du Cimeterre mercuriel sur un champion AP). ↑ → plus permissif |
+| `SWITCH_MARGIN` | **0,05** | avance qu'un nouvel item doit prendre sur la proposition en cours pour la remplacer. Vit dans le coach (`src/main/engine/coach.ts`), pas dans le moteur pur : c'est de l'état inter-tick. ↑ → proposition plus stable mais plus lente à réagir |
+
+**Le filtre d'axe s'applique aussi en mode « Auto »**, pas seulement quand
+l'utilisateur force AD/AP : l'axe déduit n'existe que si l'inventaire penche à
+≥ 70 % d'un côté, donc quand il est renseigné il vaut un clic.
 
 Génération, repli patch N-1, CI et téléchargement client : **`BUILDS.md`**.
 A/B au benchmark : `BENCH_NO_BUILDS=1 npm run bench:coach` mesure le moteur sans prior.
