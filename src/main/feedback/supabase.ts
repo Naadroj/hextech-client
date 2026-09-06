@@ -62,13 +62,14 @@ export interface InsertOutcome {
 /**
  * En-têtes d'authentification, selon le format de la clé.
  *
- * Une clé au nouveau format (`sb_publishable_…`) **n'est pas un JWT**. La doc
- * Supabase impose de l'envoyer sur `apikey` et *surtout pas* sur
- * `Authorization: Bearer`, où la couche d'auth tente de la vérifier comme un
- * jeton, échoue, et n'authentifie donc pas l'appelant — la requête n'est alors
- * plus rattachée au rôle `anon` et aucune policy RLS écrite pour ce rôle ne
- * s'applique. Symptôme : la lecture passe (liste vide) mais l'`INSERT` est
- * rejeté par la RLS, alors que la policy est correcte.
+ * Une clé au nouveau format (`sb_publishable_…`) **n'est pas un JWT**, et la doc
+ * Supabase demande de l'envoyer sur `apikey` plutôt que sur `Authorization:
+ * Bearer`, où la couche d'auth tenterait de la vérifier comme un jeton.
+ *
+ * Mesuré le 6 septembre 2026 : l'envoyer quand même en `Bearer` fonctionne
+ * (HTTP 201). Ce n'est donc pas un correctif de bug mais une mise en conformité,
+ * pour ne pas dépendre d'une compatibilité que Supabase présente comme
+ * transitoire.
  *
  * Les clés héritées (`eyJ…`) sont, elles, de vrais JWT : PostgREST y lit le
  * rôle, et elles gardent les deux en-têtes.
@@ -92,9 +93,47 @@ function explain(status: number, body: string): string {
   return `HTTP ${status}${detail ? ` : ${detail}` : ''}`
 }
 
+/** Une ligne déjà en base : `id` est la clé primaire (PostgREST `23505`). */
+function isDuplicate(status: number, body: string): boolean {
+  return status === 409 || body.includes('23505')
+}
+
+/** `POST` d'un lot, en insertion simple. */
+async function postRows(
+  reports: FeedbackReport[],
+  post: Poster,
+): Promise<{ ok: boolean; status: number; body: string }> {
+  const res = await post(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders(SUPABASE_ANON_KEY),
+      // Surtout **pas** de `resolution=ignore-duplicates` : cet en-tête ferait
+      // un upsert, et un upsert sous RLS réclame plus que la seule policy
+      // `INSERT` — la table est en « insertion seule », donc il est rejeté par
+      // la RLS alors même que la policy est correcte. L'idempotence est reprise
+      // plus bas, sur le `409`, plutôt qu'achetée au prix d'une policy `SELECT`
+      // ou `UPDATE` qui ouvrirait la lecture des signalements.
+      Prefer: 'return=minimal',
+    },
+    body: JSON.stringify(reports.map(toRow)),
+    signal: AbortSignal.timeout(15000),
+  })
+  return { ok: res.ok, status: res.status, body: res.ok ? '' : await res.text().catch(() => '') }
+}
+
 /**
- * Insère un lot. `Prefer: resolution=ignore-duplicates` rend l'envoi idempotent
- * sur `id` : un renvoi après un timeout ne crée pas de doublon.
+ * Insère un lot, puis rattrape les doublons un par un.
+ *
+ * Le lot part en une requête — le cas courant. S'il bute sur un `id` déjà
+ * présent, tout le lot échoue : Postgres est atomique. On rejoue alors rapport
+ * par rapport, et un doublon compte comme **envoyé** — la ligne est en base,
+ * c'est tout ce qui compte, et la garder en file la ferait échouer à chaque
+ * tentative suivante.
+ *
+ * Ce cas n'arrive que si une insertion a réussi sans que la réponse nous
+ * parvienne (timeout réseau) : le rapport est resté en file et repart au coup
+ * d'après.
  */
 export async function insertReports(
   reports: FeedbackReport[],
@@ -103,22 +142,25 @@ export async function insertReports(
   if (reports.length === 0) return { sent: [], error: null }
   if (!isConfigured()) return { sent: [], error: 'identifiants absents de ce build' }
   try {
-    const res = await post(`${SUPABASE_URL}/rest/v1/${TABLE}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeaders(SUPABASE_ANON_KEY),
-        Prefer: 'return=minimal,resolution=ignore-duplicates',
-      },
-      body: JSON.stringify(reports.map(toRow)),
-      signal: AbortSignal.timeout(15000),
-    })
-    if (!res.ok) {
-      const message = explain(res.status, await res.text().catch(() => ''))
+    const batch = await postRows(reports, post)
+    if (batch.ok) return { sent: reports.map((r) => r.id), error: null }
+
+    if (!isDuplicate(batch.status, batch.body) || reports.length === 1) {
+      const message = explain(batch.status, batch.body)
       logger.warn(`feedback: envoi refusé — ${message}`)
       return { sent: [], error: message }
     }
-    return { sent: reports.map((r) => r.id), error: null }
+
+    logger.info('feedback: doublon dans le lot, reprise rapport par rapport')
+    const sent: string[] = []
+    let error: string | null = null
+    for (const report of reports) {
+      const one = await postRows([report], post)
+      if (one.ok || isDuplicate(one.status, one.body)) sent.push(report.id)
+      else error ??= explain(one.status, one.body)
+    }
+    if (error) logger.warn(`feedback: envoi partiel — ${error}`)
+    return { sent, error }
   } catch (err) {
     const message = String(err)
     logger.info('feedback: envoi impossible —', message)

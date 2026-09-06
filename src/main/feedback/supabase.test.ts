@@ -95,3 +95,54 @@ describe('explication des refus', () => {
     vi.unstubAllEnvs()
   })
 })
+
+describe('idempotence sans upsert', () => {
+  const configured = async () => {
+    vi.resetModules()
+    vi.stubEnv('HEXTECH_SUPABASE_URL', 'https://x.supabase.co')
+    vi.stubEnv('HEXTECH_SUPABASE_ANON_KEY', 'sb_publishable_test')
+    return import('./supabase')
+  }
+
+  it("ne demande jamais d'upsert", async () => {
+    // `resolution=ignore-duplicates` ferait un upsert, que la RLS « insertion
+    // seule » rejette — c'était la cause du blocage du 6 septembre 2026.
+    const mod = await configured()
+    const post = vi.fn<Poster>(ok)
+    await mod.insertReports([report()], post)
+
+    const prefer = String((post.mock.calls[0][1].headers as Record<string, string>).Prefer)
+    expect(prefer).not.toContain('resolution')
+    vi.unstubAllEnvs()
+  })
+
+  it('un doublon dans le lot : reprise un par un, le doublon compte comme envoyé', async () => {
+    const mod = await configured()
+    const conflict = '{"code":"23505","message":"duplicate key value"}'
+    const post = vi.fn<Poster>(async (_url, init) => {
+      const body = JSON.parse(String(init.body)) as { id: string }[]
+      // Le lot entier échoue sur le doublon (Postgres est atomique), puis
+      // chaque rapport repart seul : `r1` est déjà en base, `r2` passe.
+      if (body.length > 1) return { ok: false, status: 409, text: async () => conflict }
+      return body[0].id === 'r1'
+        ? { ok: false, status: 409, text: async () => conflict }
+        : { ok: true, status: 201, text: async () => '' }
+    })
+
+    const out = await mod.insertReports([report({ id: 'r1' }), report({ id: 'r2' })], post)
+    expect(out).toEqual({ sent: ['r1', 'r2'], error: null })
+    expect(post).toHaveBeenCalledTimes(3)
+    vi.unstubAllEnvs()
+  })
+
+  it('un refus qui n’est pas un doublon reste une erreur', async () => {
+    const mod = await configured()
+    const out = await mod.insertReports(
+      [report()],
+      vi.fn<Poster>(fail(401, '{"code":"42501","message":"new row violates row-level security policy"}')),
+    )
+    expect(out.sent).toEqual([])
+    expect(out.error).toMatch(/row-level security/)
+    vi.unstubAllEnvs()
+  })
+})

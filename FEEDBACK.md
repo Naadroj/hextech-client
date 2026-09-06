@@ -112,23 +112,43 @@ binaire peut insérer des lignes. À l'échelle d'un cercle d'amis c'est
 acceptable ; si ça devient un problème, mettre un Cloudflare Worker devant pour
 faire le rate-limit.
 
-### Format de clé : `apikey` seulement, jamais `Authorization`
+### Jamais d'upsert sur une table en insertion seule
 
-Une clé au nouveau format (`sb_publishable_…`) **n'est pas un JWT**. Supabase
-impose de l'envoyer sur l'en-tête `apikey` et *surtout pas* sur
-`Authorization: Bearer`, où la couche d'auth tente de la vérifier comme un jeton,
-échoue, et **n'authentifie pas l'appelant**. La requête n'est alors plus
-rattachée au rôle `anon`, et aucune policy RLS écrite pour ce rôle ne s'applique.
+**Le piège qui a bloqué la `v0.1.13`.** L'envoi partait avec
+`Prefer: resolution=ignore-duplicates`, pour rendre le renvoi idempotent. Cet
+en-tête transforme l'`INSERT` en **upsert**, et un upsert sous RLS réclame plus
+que la seule policy `INSERT` — sur une table en « insertion seule » il est donc
+rejeté, avec le message d'une policy manquante :
 
-Le symptôme est déroutant, parce qu'il ressemble trait pour trait à une policy
-manquante : la **lecture passe** (`200` avec une liste vide) mais l'`INSERT` est
-rejeté par la RLS — alors que `pg_policies` montre une policy `PERMISSIVE`,
-`INSERT`, `to anon`, `with check (true)` parfaitement correcte. C'est ce qui a
-fait chercher côté base pendant tout le débogage de la `v0.1.13`.
+```
+HTTP 401 — 42501 : new row violates row-level security policy for table "feedback"
+```
 
-`authHeaders()` dans [supabase.ts](src/main/feedback/supabase.ts) tranche selon
-le format : les clés héritées (`eyJ…`) sont de vrais JWT et gardent les deux
-en-têtes, les nouvelles n'ont que `apikey`.
+Le symptôme imite parfaitement une policy absente, et c'est ce qui fait perdre
+du temps : la lecture répond `200 []`, l'insertion est refusée, et `pg_policies`
+montre pourtant une policy `PERMISSIVE / INSERT / {anon} / true` irréprochable.
+
+**Règle de diagnostic : si la policy est visible et correcte, le problème est
+côté client, pas côté SQL.** Ne pas ajouter de policy `SELECT` ou `UPDATE` pour
+faire passer l'upsert — ça ouvrirait la lecture des signalements à quiconque
+extrait la clé du binaire. L'idempotence est reprise côté client dans
+[supabase.ts](src/main/feedback/supabase.ts) : le lot part en insertion simple,
+et si un `id` est déjà présent (`409` / `23505`) les rapports repartent un par
+un, un doublon comptant comme envoyé.
+
+Mesuré le 6 septembre 2026, sur la vraie base :
+
+| Requête | Résultat |
+|---|---|
+| `apikey` seul, `Prefer: return=minimal` | **201** |
+| `apikey` + `Authorization: Bearer`, `Prefer: return=minimal` | **201** |
+| `Prefer: return=minimal,resolution=ignore-duplicates` | **401** `42501` |
+
+Note au passage : envoyer une clé `sb_publishable_…` sur `Authorization: Bearer`
+**fonctionne**, contrairement à ce qu'on pouvait craindre. `authHeaders()` ne
+l'envoie quand même que sur `apikey`, par conformité à la doc Supabase et pour
+ne pas dépendre d'une compatibilité présentée comme transitoire — mais ce n'est
+pas un correctif de bug.
 
 ### Où trouver les deux valeurs
 

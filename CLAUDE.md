@@ -185,22 +185,22 @@ hors partie. Les 30 dernières étapes sont jointes aux signalements, dans
 
 ## En cours / à faire
 
-### 1. L'envoi des signalements — cause trouvée, correctif à valider
+### 1. L'envoi des signalements — résolu le 6 septembre 2026
 
-**Le 6 septembre 2026, la cause était dans notre code, pas dans la base.**
+**La cause était dans notre code, pas dans la base.** L'envoi partait avec
+`Prefer: resolution=ignore-duplicates`, pour rendre un renvoi idempotent. Cet
+en-tête fait un **upsert**, et un upsert sous RLS réclame plus que la seule
+policy `INSERT` : sur une table en « insertion seule » il est rejeté, avec le
+message d'une policy manquante. Corrigé dans
+[supabase.ts](src/main/feedback/supabase.ts) — insertion simple, et l'idempotence
+est reprise côté client sur le `409` (`23505`), les rapports repartant un par un.
 
-L'app envoyait la clé Supabase à la fois sur `apikey` **et** sur
-`Authorization: Bearer`. C'était la convention de l'ancienne clé `anon`, qui
-était un JWT. Une clé `sb_publishable_…` n'en est pas un : sur `Authorization`,
-la couche d'auth tente de la vérifier comme un jeton, échoue, et n'authentifie
-pas l'appelant — la requête n'est plus rattachée au rôle `anon` et aucune policy
-écrite pour ce rôle ne s'applique. Corrigé par `authHeaders()` dans
-[supabase.ts](src/main/feedback/supabase.ts).
+Vérifié contre la vraie base : insertion acceptée, lecture toujours vide avec la
+clé publique. Détail des mesures dans [FEEDBACK.md](FEEDBACK.md).
 
-**La leçon, pour ne pas repartir sur la même fausse piste :** le symptôme imite
-parfaitement une policy manquante — lecture à `200 []`, `INSERT` rejeté par la
-RLS. Tout le débogage a cherché côté base, et la base était juste. Ce qui a
-débloqué, c'est de vérifier l'état réel :
+**La leçon, elle vaut plus que le correctif.** Le symptôme imitait parfaitement
+une policy absente, et le débogage a cherché côté Supabase pendant tout ce
+temps — en vain, la base était juste depuis le début. La question qui tranche :
 
 ```sql
 select policyname, permissive, roles, cmd, with_check
@@ -208,16 +208,15 @@ from pg_policies where schemaname = 'public' and tablename = 'feedback';
 ```
 
 Une policy `PERMISSIVE / INSERT / {anon} / true` visible **et** un `INSERT`
-refusé ⇒ le problème est côté client, pas côté SQL.
+refusé ⇒ chercher côté client. Et ne jamais ajouter de policy `SELECT`/`UPDATE`
+pour faire passer une requête : ça ouvrirait la lecture des signalements.
 
-**Reste à valider en conditions réelles** : le correctif est dans `master` mais
-pas dans un binaire publié. La `v0.1.13` installée continuera d'échouer — il
-faut un nouveau build pour le vérifier (`npm run feedback:probe` teste le même
-chemin de code sans passer par l'app).
+**Pas encore dans un binaire publié** : la `v0.1.13` installée continuera
+d'échouer jusqu'à une nouvelle version.
 
 Corrigés en route : la colonne `comment` n'était pas envoyée et l'échec était
-muet (`v0.1.13`), il n'existait aucun moyen de tester l'envoi hors de l'app
-(la sonde), et l'en-tête `Authorization` (ci-dessus).
+muet (`v0.1.13`), et il n'existait aucun moyen de tester l'envoi hors de l'app
+(`npm run feedback:probe`).
 
 ### 2. Variantes d'axe : faux positifs sur les enchanteurs
 
