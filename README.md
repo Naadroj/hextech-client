@@ -5,6 +5,10 @@ locale **LCU** (REST + WebSocket) exposée par le client officiel : aucune
 injection de DLL, aucune lecture/écriture mémoire, aucune modification de fichier
 du jeu. Le client officiel continue de tourner normalement en arrière-plan.
 
+> **Reprise du projet sur une autre machine** — tout ce qu'il faut savoir pour
+> repartir (mise en route, état courant, chantiers ouverts, pièges) est dans
+> [CLAUDE.md](CLAUDE.md).
+
 ## Stack
 
 - **electron-vite** + **Electron** + **React** + **TypeScript**
