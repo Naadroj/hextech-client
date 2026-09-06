@@ -5,7 +5,8 @@ dépôt. Il dit **où on en est**, **ce qui ne se négocie pas**, et **ce qui re
 à faire**. Les détails techniques vivent dans les docs dédiées (voir plus bas) ;
 ici on ne garde que ce qu'on ne peut pas deviner en lisant le code.
 
-Dernière mise à jour : **6 septembre 2026** (version publiée : `v0.1.13`).
+Dernière mise à jour : **6 septembre 2026** (publiée : `v0.1.13` ; `v0.1.14`
+prête dans `master`, pas encore taguée).
 
 ## Ce qu'est le projet
 
@@ -77,7 +78,7 @@ Côté CI, les mêmes valeurs sont des **secrets de dépôt** déjà configurés
 
 ```bash
 npm run dev          # electron-vite en dev
-npm test             # vitest (564 tests)
+npm test             # vitest (579 tests)
 npm run typecheck    # tsc sur les projets node + web
 npm run lint         # eslint
 npm run build        # bundle (inline les identifiants Supabase)
@@ -137,7 +138,7 @@ couples champion+rôle au seuil de 50 parties, 311 en dessous.
 Phases 0 → 6 faites, phase 7 (Boutique) et 8-9 à faire. Sous-projet Coach
 A0 → A7 fait. Détail dans [README.md](README.md).
 
-Trois chantiers récents, tous livrés en `v0.1.11` → `v0.1.13` :
+Chantiers récents, livrés en `v0.1.11` → `v0.1.14` :
 
 ### Switch d'axe AD/AP
 
