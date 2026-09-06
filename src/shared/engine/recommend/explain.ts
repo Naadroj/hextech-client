@@ -34,7 +34,18 @@ const THIN_SAMPLE_GAMES = 30
  * un Thresh à qui on justifiait un Morellonomicon par « 100 % de l'or reste sur
  * ta courbe de dégâts ».
  */
-const NON_CARRY_ROLES = new Set(['TANK', 'WARDEN', 'CATCHER', 'ENCHANTER', 'VANGUARD'])
+const NON_CARRY_ROLES = new Set([
+  'TANK',
+  'WARDEN',
+  'CATCHER',
+  'ENCHANTER',
+  'VANGUARD',
+  // `SUPPORT` seul ne suffit pas à faire un carry : Thresh est CATCHER/SUPPORT/
+  // TANK, Maokai SUPPORT/TANK/VANGUARD. L'oublier laissait la phrase passer sur
+  // eux — c'est le rejeu des signalements qui l'a montré. Une Ashe support reste
+  // un carry, elle porte MARKSMAN en plus.
+  'SUPPORT',
+])
 
 const isDamageCarry = (a: GameAssessment): boolean => {
   const roles = a.self.profile.roles.map((x) => x.toUpperCase())

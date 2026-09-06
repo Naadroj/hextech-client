@@ -5,8 +5,7 @@ dépôt. Il dit **où on en est**, **ce qui ne se négocie pas**, et **ce qui re
 à faire**. Les détails techniques vivent dans les docs dédiées (voir plus bas) ;
 ici on ne garde que ce qu'on ne peut pas deviner en lisant le code.
 
-Dernière mise à jour : **6 septembre 2026** (publiée : `v0.1.13` ; `v0.1.14`
-prête dans `master`, pas encore taguée).
+Dernière mise à jour : **6 septembre 2026** (version publiée : `v0.1.15`).
 
 ## Ce qu'est le projet
 
@@ -78,7 +77,7 @@ Côté CI, les mêmes valeurs sont des **secrets de dépôt** déjà configurés
 
 ```bash
 npm run dev          # electron-vite en dev
-npm test             # vitest (579 tests)
+npm test             # vitest (592 tests)
 npm run typecheck    # tsc sur les projets node + web
 npm run lint         # eslint
 npm run build        # bundle (inline les identifiants Supabase)
@@ -138,7 +137,7 @@ couples champion+rôle au seuil de 50 parties, 311 en dessous.
 Phases 0 → 6 faites, phase 7 (Boutique) et 8-9 à faire. Sous-projet Coach
 A0 → A7 fait. Détail dans [README.md](README.md).
 
-Chantiers récents, livrés en `v0.1.11` → `v0.1.14` :
+Chantiers récents, livrés en `v0.1.11` → `v0.1.15` :
 
 ### Switch d'axe AD/AP
 
@@ -218,8 +217,7 @@ Une policy `PERMISSIVE / INSERT / {anon} / true` visible **et** un `INSERT`
 refusé ⇒ chercher côté client. Et ne jamais ajouter de policy `SELECT`/`UPDATE`
 pour faire passer une requête : ça ouvrirait la lecture des signalements.
 
-**Pas encore dans un binaire publié** : la `v0.1.13` installée continuera
-d'échouer jusqu'à une nouvelle version.
+Livré en `v0.1.14`.
 
 Corrigés en route : la colonne `comment` n'était pas envoyée et l'échec était
 muet (`v0.1.13`), et il n'existait aucun moyen de tester l'envoi hors de l'app
@@ -251,10 +249,17 @@ voir la réserve plus bas.
    s'échangeaient la place à chaque battement. Hystérésis dans le coach
    (`SWITCH_MARGIN`) — c'est de l'état inter-tick, donc hors du moteur pur.
 
-**Réserve honnête : les points 2 et 3 changent le scoring et la sélection de
-candidats, et n'ont pas été passés au benchmark** — `bench/raw/` n'est mis en
-cache qu'en CI, il est absent d'un clone neuf. À faire tourner avant de tagger
-une version qui les embarque.
+**Validation faite** : les 5 signalements encore en file locale ont été rejoués
+dans le moteur corrigé, avec le livre de builds du cache `userData` (celui que
+l'app utilisait vraiment). Le Maokai passe de « 65 % magique » à 53 % phys /
+47 % mag et bascule de Rookern (RM) à Randuin (armure) ; Annie et Ashe n'ont
+plus d'items AD en alternatives ; Briar perd sa fausse justification. C'est le
+rejeu qui a montré que `SUPPORT` manquait aux rôles non-carry.
+
+**Réserve : les points 2 et 3 changent le scoring, et le benchmark n'a pas
+tourné** — `bench/raw/` n'est mis en cache qu'en CI, il est absent d'un clone
+neuf. Le rejeu ci-dessus couvre les cas signalés, pas la non-régression
+générale. À passer au benchmark dès que le corpus est disponible.
 
 ### 2 bis. Variantes d'axe : faux positifs sur les enchanteurs
 
