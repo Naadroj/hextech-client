@@ -17,6 +17,38 @@ npm run dist           # produit dist/Hextech Client Setup <version>.exe (NSIS x
 Config : `electron-builder.yml`. L'installateur est **NSIS**, par utilisateur
 (pas besoin d'admin), avec choix du dossier + raccourcis Bureau / menu Démarrer.
 
+## Publier une mise à jour
+
+```bash
+npm version patch        # bump package.json + crée le tag vX.Y.Z
+git push --follow-tags   # déclenche le workflow `release`
+```
+
+Le workflow construit l'installeur sous Windows et le publie en **GitHub
+Release**, avec `latest.yml` (métadonnées lues par l'updater) et le `.blockmap`
+(téléchargement différentiel). Lien à partager :
+`https://github.com/Naadroj/hextech-client/releases/latest`.
+
+Côté app, `electron-updater` ([updater.ts](src/main/updater.ts)) lit ce
+`latest.yml`, compare à la version installée, télécharge et applique au
+redémarrage. **Réglages → Mises à jour** : vérifier, télécharger (avec
+progression), installer. Trois choix à connaître :
+
+- **Vérification manuelle**, jamais au démarrage — pas de requête réseau non
+  sollicitée. Le revers est en « Limites connues ».
+- **`autoDownload = false`** : on demande avant de consommer la bande passante.
+- **`autoInstallOnAppQuit = true`** : une mise à jour téléchargée mais non
+  installée s'applique à la fermeture suivante.
+
+Inerte hors application packagée (`app.isPackaged`) : en développement il n'y a
+pas d'`app-update.yml`, l'écran affiche « disponible uniquement dans la version
+installée ». **Conséquence : la seule façon de tester la chaîne est d'installer
+une version, d'en publier une plus récente, et de cliquer.**
+
+⚠️ `electron-updater` est **CommonJS** : l'importer par défaut puis
+déstructurer. Un import nommé fait planter l'app *packagée* au démarrage, sans
+rien casser en dev.
+
 ## Ce qui est embarqué
 
 `extraResources` copie sous `resources/` de l'app installée :
@@ -36,8 +68,10 @@ Config : `electron-builder.yml`. L'installateur est **NSIS**, par utilisateur
   - **Live Client Data API** (`https://127.0.0.1:2999`) — état de la partie en cours.
 - **Aucun compte, aucune télémétrie passive.** Requêtes sortantes en GET
   anonyme : CDN publics **Data Dragon** / **Meraki Analytics** (catalogue) et
-  **GitHub Releases** (le `builds.json` pré-agrégé). Coupe le réseau → l'app
-  reste fonctionnelle avec le snapshot et le `builds.json` embarqués.
+  **GitHub Releases** — pour le `builds.json` pré-agrégé, et pour la recherche
+  de mise à jour, celle-ci **uniquement sur clic** dans les Réglages. Coupe le
+  réseau → l'app reste fonctionnelle avec le snapshot et le `builds.json`
+  embarqués.
 - **Une seule donnée sort de l'app, et seulement sur action explicite** : le
   bouton **bug** de l'overlay enregistre un *signalement* « cet item n'est pas
   cohérent » **en local**, et l'onglet **Signalements** de l'app l'envoie sur
@@ -76,8 +110,10 @@ Config : `electron-builder.yml`. L'installateur est **NSIS**, par utilisateur
 - **Installateur non signé** → Windows SmartScreen affiche « Éditeur inconnu »
   au premier lancement : *Informations complémentaires → Exécuter quand même*.
   La signature de code (certificat EV) est une étape ultérieure.
-- **Pas de mise à jour automatique** (electron-updater = phase ultérieure) :
-  pour mettre à jour, re-télécharger et relancer l'installateur.
+- **Vérification des mises à jour à la demande, pas au démarrage** : l'app ne
+  contacte GitHub que si on clique dans les Réglages. Volontaire — aucune
+  requête réseau non sollicitée au lancement —, mais quelqu'un qui n'ouvre
+  jamais les Réglages peut rester sur une version ancienne.
 - **Electron 33** est en retard sur les versions LTS (`npm audit`). Bump prévu
   en phase de durcissement ; les vulnérabilités signalées sont dans des
   dépendances **de build** (electron-builder), pas dans l'app livrée.
